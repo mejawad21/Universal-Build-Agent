@@ -1,0 +1,19 @@
+
+AUTO BUILD AGENT — SIMPLE USE
+
+SETUP ONLY ONCE
+1. Make a new GitHub repository called Auto-Build-Agent.
+2. Extract this repository ZIP.
+3. Upload all extracted files and folders.
+4. Commit.
+
+AFTER THAT
+1. Upload any source ZIP to the repository main page.
+2. Press Commit changes.
+3. Wait for the green check under Actions.
+4. Download READY-APK or READY-WINDOWS-EXE.
+
+NO RENAME
+NO DELETE
+NO WORKFLOW EDITING
+NO MANUAL RUN BUTTON

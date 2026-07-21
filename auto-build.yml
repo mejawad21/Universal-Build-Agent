@@ -1,0 +1,369 @@
+name: Auto Build APK or EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "**/*.zip"
+      - ".github/scripts/**"
+      - ".github/workflows/auto-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Find ZIP and detect project
+    runs-on: ubuntu-latest
+    outputs:
+      zip_file: ${{ steps.select.outputs.zip_file }}
+      zip_name: ${{ steps.select.outputs.zip_name }}
+      project_type: ${{ steps.detect.outputs.project_type }}
+      project_root: ${{ steps.detect.outputs.project_root }}
+      agp_version: ${{ steps.detect.outputs.agp_version }}
+      gradle_version: ${{ steps.detect.outputs.gradle_version }}
+      compile_sdk: ${{ steps.detect.outputs.compile_sdk }}
+      sdk_extension: ${{ steps.detect.outputs.sdk_extension }}
+      build_tools: ${{ steps.detect.outputs.build_tools }}
+      entrypoint: ${{ steps.detect.outputs.entrypoint }}
+      spec_file: ${{ steps.detect.outputs.spec_file }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select the uploaded ZIP automatically
+        id: select
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          python .github/scripts/select_zip.py \
+            --before "${BEFORE_SHA:-}" \
+            --after "${AFTER_SHA:-}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Check ZIP integrity
+        shell: bash
+        run: |
+          test -s "${{ steps.select.outputs.zip_file }}"
+          unzip -t "${{ steps.select.outputs.zip_file }}"
+
+      - name: Detect Android or Windows project
+        id: detect
+        shell: bash
+        run: |
+          python .github/scripts/detect_project.py \
+            "${{ steps.select.outputs.zip_file }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Show automatic detection
+        run: |
+          echo "Selected ZIP: ${{ steps.select.outputs.zip_file }}"
+          echo "Detected type: ${{ steps.detect.outputs.project_type }}"
+          echo "Project root: ${{ steps.detect.outputs.project_root }}"
+
+  build-android:
+    name: Build Android APK automatically
+    needs: detect
+    if: ${{ needs.detect.outputs.project_type == 'android' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        shell: bash
+        run: yes | sdkmanager --licenses > /dev/null || true
+
+      - name: Install detected Android SDK
+        shell: bash
+        env:
+          COMPILE_SDK: ${{ needs.detect.outputs.compile_sdk }}
+          SDK_EXTENSION: ${{ needs.detect.outputs.sdk_extension }}
+          BUILD_TOOLS: ${{ needs.detect.outputs.build_tools }}
+        run: |
+          set -euo pipefail
+
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-${COMPILE_SDK}" \
+            "build-tools;${BUILD_TOOLS}"
+
+          if [ -n "${SDK_EXTENSION}" ] && [ "${SDK_EXTENSION}" != "0" ]; then
+            sdkmanager "platforms;android-${COMPILE_SDK}-ext${SDK_EXTENSION}"
+          fi
+
+      - name: Set up detected Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ needs.detect.outputs.gradle_version }}
+
+      - name: Extract selected ZIP
+        shell: bash
+        run: |
+          rm -rf extracted deliverables
+          mkdir extracted deliverables
+          unzip -q "${{ needs.detect.outputs.zip_file }}" -d extracted
+
+      - name: Build APK
+        shell: bash
+        env:
+          PROJECT_ROOT: ${{ needs.detect.outputs.project_root }}
+        run: |
+          set -euo pipefail
+
+          PROJECT="extracted"
+          if [ -n "${PROJECT_ROOT}" ]; then
+            PROJECT="${PROJECT}/${PROJECT_ROOT}"
+          fi
+
+          cd "${PROJECT}"
+
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew --no-daemon clean assembleDebug \
+              --stacktrace --console=plain
+          else
+            gradle --no-daemon clean assembleDebug \
+              --stacktrace --console=plain
+          fi
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          find extracted \
+            -type f \
+            -path "*/build/outputs/apk/*/*.apk" \
+            ! -name "*androidTest*" \
+            -exec cp {} deliverables/ \;
+
+          test "$(find deliverables -type f -name '*.apk' | wc -l)" -gt 0
+          cd deliverables
+          sha256sum *.apk > SHA256.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: READY-APK
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 30
+
+  build-windows:
+    name: Build portable Windows EXE automatically
+    needs: detect
+    if: ${{ needs.detect.outputs.project_type == 'windows_python' }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract selected ZIP
+        shell: pwsh
+        run: |
+          Remove-Item extracted, deliverables -Recurse -Force `
+            -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory extracted | Out-Null
+          New-Item -ItemType Directory deliverables | Out-Null
+          Expand-Archive `
+            -Path "${{ needs.detect.outputs.zip_file }}" `
+            -DestinationPath extracted `
+            -Force
+
+      - name: Install dependencies
+        shell: pwsh
+        env:
+          PROJECT_ROOT: ${{ needs.detect.outputs.project_root }}
+        run: |
+          $project = "extracted"
+          if ($env:PROJECT_ROOT) {
+            $project = Join-Path $project $env:PROJECT_ROOT
+          }
+
+          python -m pip install --upgrade pip
+          $requirements = Join-Path $project "requirements.txt"
+
+          if (Test-Path $requirements) {
+            pip install -r $requirements
+          }
+
+          pip install pyinstaller
+
+      - name: Run optional smoke test
+        shell: pwsh
+        env:
+          PROJECT_ROOT: ${{ needs.detect.outputs.project_root }}
+        run: |
+          $project = "extracted"
+          if ($env:PROJECT_ROOT) {
+            $project = Join-Path $project $env:PROJECT_ROOT
+          }
+
+          $test = Join-Path $project "smoke_test.py"
+          if (Test-Path $test) {
+            Push-Location $project
+            python smoke_test.py
+            Pop-Location
+          }
+
+      - name: Build portable EXE
+        shell: pwsh
+        env:
+          PROJECT_ROOT: ${{ needs.detect.outputs.project_root }}
+          ENTRYPOINT: ${{ needs.detect.outputs.entrypoint }}
+          SPEC_FILE: ${{ needs.detect.outputs.spec_file }}
+        run: |
+          $project = "extracted"
+          if ($env:PROJECT_ROOT) {
+            $project = Join-Path $project $env:PROJECT_ROOT
+          }
+
+          Push-Location $project
+
+          if ($env:SPEC_FILE -and (Test-Path $env:SPEC_FILE)) {
+            pyinstaller --noconfirm --clean $env:SPEC_FILE
+          }
+          else {
+            if (-not $env:ENTRYPOINT) {
+              throw "Python entrypoint was not detected."
+            }
+
+            $extra = @()
+
+            python -c "import fitz" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $extra += @("--collect-all", "fitz")
+            }
+
+            python -c "import pymupdf" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $extra += @("--collect-all", "pymupdf")
+            }
+
+            python -c "import win32com.client" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $extra += @(
+                "--hidden-import", "win32com.client",
+                "--hidden-import", "pythoncom"
+              )
+            }
+
+            $icon = Get-ChildItem -Recurse -Filter *.ico |
+              Select-Object -First 1
+
+            if ($icon) {
+              $extra += @("--icon", $icon.FullName)
+            }
+
+            pyinstaller --noconfirm --clean --windowed --onedir `
+              --name "Portable Application" `
+              @extra `
+              $env:ENTRYPOINT
+
+            pyinstaller --noconfirm --clean --windowed --onefile `
+              --name "Portable Application Compact" `
+              @extra `
+              $env:ENTRYPOINT
+          }
+
+          Pop-Location
+
+      - name: Collect EXE
+        shell: pwsh
+        env:
+          PROJECT_ROOT: ${{ needs.detect.outputs.project_root }}
+        run: |
+          $project = "extracted"
+          if ($env:PROJECT_ROOT) {
+            $project = Join-Path $project $env:PROJECT_ROOT
+          }
+
+          $dist = Join-Path $project "dist"
+          if (-not (Test-Path $dist)) {
+            throw "No Windows build output was created."
+          }
+
+          Get-ChildItem $dist -Directory | ForEach-Object {
+            $safeName = $_.Name -replace '[^A-Za-z0-9._-]', '-'
+            Compress-Archive `
+              -Path $_.FullName `
+              -DestinationPath (
+                Join-Path deliverables "$safeName-Portable.zip"
+              ) `
+              -Force
+          }
+
+          Get-ChildItem $dist -File -Filter *.exe |
+            Copy-Item -Destination deliverables
+
+          if ((Get-ChildItem deliverables -File).Count -eq 0) {
+            throw "No EXE was collected."
+          }
+
+          Get-FileHash deliverables/* -Algorithm SHA256 |
+            Format-Table -AutoSize |
+            Out-File deliverables/SHA256.txt
+
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: READY-WINDOWS-EXE
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-existing:
+    name: Publish existing APK or EXE
+    needs: detect
+    if: ${{ needs.detect.outputs.project_type == 'prebuilt' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Extract application files
+        shell: bash
+        run: |
+          rm -rf extracted deliverables
+          mkdir extracted deliverables
+          unzip -q "${{ needs.detect.outputs.zip_file }}" -d extracted
+
+          find extracted \
+            -type f \
+            \( -iname "*.apk" -o -iname "*.exe" -o -iname "*.msi" \) \
+            -exec cp {} deliverables/ \;
+
+          test "$(find deliverables -type f | wc -l)" -gt 0
+          cd deliverables
+          sha256sum * > SHA256.txt
+
+      - name: Upload application
+        uses: actions/upload-artifact@v4
+        with:
+          name: READY-APPLICATION
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 30
