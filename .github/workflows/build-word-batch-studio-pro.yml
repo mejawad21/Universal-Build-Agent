@@ -1,0 +1,57 @@
+name: Build Word Batch Studio Pro Portable
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "word-batch-studio-pro/**"
+      - ".github/workflows/build-word-batch-studio-pro.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build portable Windows EXE
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r word-batch-studio-pro/requirements.txt
+          pip install pyinstaller
+
+      - name: Validate source
+        shell: pwsh
+        run: python -m py_compile word-batch-studio-pro/app.py
+
+      - name: Build single-file portable EXE
+        shell: pwsh
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name "Word Batch Studio Pro" --hidden-import win32com.client --hidden-import pythoncom --hidden-import pywintypes --hidden-import win32timezone --collect-submodules win32com word-batch-studio-pro/app.py
+
+      - name: Prepare portable package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force deliverables | Out-Null
+          Copy-Item "dist/Word Batch Studio Pro.exe" "deliverables/Word Batch Studio Pro.exe"
+          Copy-Item "word-batch-studio-pro/README.txt" "deliverables/README.txt"
+          Get-FileHash "deliverables/Word Batch Studio Pro.exe" -Algorithm SHA256 | Select-Object Hash, Path | Out-File "deliverables/SHA256.txt"
+
+      - name: Upload ready portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: WORD-BATCH-STUDIO-PRO-PORTABLE
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 30
