@@ -1,0 +1,36 @@
+name: Package Word Batch Studio Pro Python
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "word-batch-studio-python/**"
+      - ".github/workflows/package-word-batch-studio-python.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prepare package
+        run: |
+          rm -rf deliverables
+          mkdir -p deliverables
+          cp word-batch-studio-python/Word_Batch_Studio_Pro.py deliverables/
+          cp word-batch-studio-python/requirements.txt deliverables/
+          cp word-batch-studio-python/RUN_APP.bat deliverables/
+          cp word-batch-studio-python/INSTALL_DEPENDENCY.bat deliverables/
+          cp word-batch-studio-python/README.txt deliverables/
+
+      - name: Upload Python package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WORD-BATCH-STUDIO-PRO-PYTHON
+          path: deliverables/
+          if-no-files-found: error
+          retention-days: 30
