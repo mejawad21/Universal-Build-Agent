@@ -9,7 +9,6 @@ import android.webkit.URLUtil
 import android.widget.*
 import android.view.ViewGroup
 import android.view.Gravity
-import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : android.app.Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
