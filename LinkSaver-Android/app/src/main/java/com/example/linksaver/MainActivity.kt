@@ -33,6 +33,7 @@ class MainActivity : Activity() {
     private val accent = Color.rgb(107, 143, 255)
     private val secondary = Color.rgb(174, 186, 207)
     private lateinit var urlInput: EditText
+    private lateinit var qualitySpinner: Spinner
     private lateinit var statusText: TextView
     private lateinit var list: LinearLayout
     private lateinit var manager: DownloadManager
@@ -81,7 +82,7 @@ class MainActivity : Activity() {
             insets
         }
         val header = TextView(this).apply {
-            text = "LinkSaver 3.2"
+            text = "LinkSaver 3.3"
             textSize = 29f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
@@ -105,6 +106,21 @@ class MainActivity : Activity() {
             backgroundTintList = ColorStateList.valueOf(accent)
         }
         card.addView(urlInput, margin(top = 8.dp()))
+        card.addView(label("Video quality (YouTube)", 14, secondary), margin(top = 12.dp()))
+        qualitySpinner = Spinner(this).apply {
+            val choices = arrayOf("360p • Most compatible", "480p", "720p • HD", "1080p • Full HD")
+            val qualityAdapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, choices)
+            qualityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            adapter = qualityAdapter
+            setSelection(prefs.getInt("quality_index", 0).coerceIn(0, 3))
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    prefs.edit().putInt("quality_index", position).apply()
+                }
+            }
+        }
+        card.addView(qualitySpinner, margin(top = 4.dp()))
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         card.addView(actions, margin(top = 10.dp()))
         actions.addView(actionButton("Paste", false) {
@@ -158,7 +174,7 @@ class MainActivity : Activity() {
         }
         val host = uri.host!!.lowercase()
         if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be") {
-            downloadYouTube(raw)
+            downloadYouTube(raw, intArrayOf(360, 480, 720, 1080)[qualitySpinner.selectedItemPosition.coerceIn(0, 3)])
             return
         }
         val filePart = uri.lastPathSegment.orEmpty()
@@ -192,7 +208,7 @@ class MainActivity : Activity() {
     }
 
 
-    private fun downloadYouTube(url: String) {
+    private fun downloadYouTube(url: String, quality: Int) {
         if (!extractorReady) {
             statusText.text = "Video engine is preparing. Try again in a moment."
             return
@@ -213,12 +229,13 @@ class MainActivity : Activity() {
                 request.addOption("--no-update")
                 request.addOption("--extractor-args", "youtube:player_client=android")
                 request.addOption("--no-overwrites")
-                request.addOption("-f", "18/best[height<=720]/best")
+                val format = if (quality == 360) "18/best[height<=360]/best[height<=480]" else "best[height<=$quality]/bestvideo[height<=$quality]+bestaudio/18"
+                request.addOption("-f", format)
                 request.addOption("--merge-output-format", "mp4")
                 request.addOption("-o", File(directory, "%(title).80s_%(id)s.%(ext)s").absolutePath)
                 YoutubeDL.getInstance().execute(request, null, { progress, eta, _ ->
                     runOnUiThread {
-                        statusText.text = "Downloading YouTube video: " + progress.toInt() + "% • ETA " + eta + "s"
+                        statusText.text = "Downloading (up to ${quality}p): " + progress.toInt() + "% • ETA " + eta + "s"
                     }
                 })
                 val outputs = directory.listFiles()?.filter {
