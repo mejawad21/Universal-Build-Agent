@@ -50,8 +50,8 @@ class MainActivity : Activity() {
             setPadding(20.dp(), 16.dp(), 20.dp(), 12.dp())
         }
         root.setOnApplyWindowInsetsListener { view, insets ->
-            val bars = insets.getInsets(WindowInsets.Type.systemBars())
-            view.setPadding(20.dp() + bars.left, 16.dp() + bars.top, 20.dp() + bars.right, 12.dp() + bars.bottom)
+            val bars = if (android.os.Build.VERSION.SDK_INT >= 30) insets.getInsets(WindowInsets.Type.systemBars()) else null
+            view.setPadding(20.dp() + (bars?.left ?: insets.systemWindowInsetLeft), 16.dp() + (bars?.top ?: insets.systemWindowInsetTop), 20.dp() + (bars?.right ?: insets.systemWindowInsetRight), 12.dp() + (bars?.bottom ?: insets.systemWindowInsetBottom))
             insets
         }
         val header = TextView(this).apply {
@@ -126,7 +126,7 @@ class MainActivity : Activity() {
     private fun startDownload() {
         val raw = urlInput.text.toString().trim()
         val uri = try { Uri.parse(raw) } catch (_: Exception) { null }
-        if (uri?.scheme?.lowercase() != "https" || uri.host.isNullOrBlank()) {
+        if (uri == null || uri.scheme?.lowercase() != "https" || uri.host.isNullOrBlank()) {
             statusText.text = "Please enter a valid HTTPS media URL."
             return
         }
