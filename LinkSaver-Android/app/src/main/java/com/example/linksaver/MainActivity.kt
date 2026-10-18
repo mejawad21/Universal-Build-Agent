@@ -207,7 +207,7 @@ class MainActivity : Activity() {
                 request.addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best")
                 request.addOption("--merge-output-format", "mp4")
                 request.addOption("-o", File(directory, "%(title).80s_%(id)s.%(ext)s").absolutePath)
-                YoutubeDL.getInstance().execute(request, { progress, eta, _ ->
+                YoutubeDL.getInstance().execute(request, null, { progress, eta, _ ->
                     runOnUiThread {
                         statusText.text = "Downloading YouTube video: " + progress.toInt() + "% • ETA " + eta + "s"
                     }
