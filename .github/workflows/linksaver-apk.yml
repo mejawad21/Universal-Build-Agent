@@ -34,22 +34,22 @@ jobs:
         run: |
           APK="LinkSaver-Android/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionName='3.2'"
-          cp "$APK" LinkSaver-v3.2.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionName='3.3'"
+          cp "$APK" LinkSaver-v3.3.apk
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LinkSaver-v3.2-APK
-          path: LinkSaver-v3.2.apk
+          name: LinkSaver-v3.3-APK
+          path: LinkSaver-v3.3.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="linksaver-v3.2.0"
+          TAG="linksaver-v3.3.0"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" LinkSaver-v3.2.apk --clobber
+            gh release upload "$TAG" LinkSaver-v3.3.apk --clobber
           else
-            gh release create "$TAG" LinkSaver-v3.2.apk --title "LinkSaver 3.2 YouTube Downloader APK" --notes "LinkSaver 3.2 with automatic yt-dlp engine updates. Download only content you are authorized to save." --target "$GITHUB_SHA"
+            gh release create "$TAG" LinkSaver-v3.3.apk --title "LinkSaver 3.3 YouTube Downloader APK" --notes "LinkSaver 3.3 with automatic yt-dlp engine updates. Download only content you are authorized to save." --target "$GITHUB_SHA"
           fi
