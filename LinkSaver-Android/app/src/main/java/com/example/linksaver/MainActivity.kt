@@ -97,7 +97,7 @@ class MainActivity : Activity() {
         heading.addView(label("Downloads", 21, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) },
             LinearLayout.LayoutParams(0, -2, 1f))
         heading.addView(actionButton("Refresh", false) { renderDownloads() })
-        val scroll = ScrollView(this).apply { fillViewport = false }
+        val scroll = ScrollView(this).apply { isFillViewport = false }
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(list)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp() })
