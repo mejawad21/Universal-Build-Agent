@@ -18,6 +18,13 @@ import android.view.View
 import android.view.WindowInsets
 import android.widget.*
 import java.net.URLConnection
+import java.io.File
+import java.io.FileInputStream
+import android.content.ContentValues
+import android.provider.MediaStore
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
+import com.yausername.ffmpeg.FFmpeg
 
 class MainActivity : Activity() {
     private val bg = Color.rgb(13, 17, 29)
@@ -31,6 +38,8 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val prefs by lazy { getSharedPreferences("linksaver_v2", MODE_PRIVATE) }
     private var visible = false
+    @Volatile private var extractorReady = false
+    @Volatile private var extractorBusy = false
     private val refresh = object : Runnable {
         override fun run() {
             if (!visible) return
@@ -42,6 +51,16 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+        Thread {
+            try {
+                YoutubeDL.getInstance().init(applicationContext)
+                FFmpeg.getInstance().init(applicationContext)
+                extractorReady = true
+                runOnUiThread { if (!extractorBusy) statusText.text = "Ready for YouTube links and direct media files." }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "Video engine unavailable: " + (e.message ?: "Initialization failed") }
+            }
+        }.start()
         window.statusBarColor = bg
         window.navigationBarColor = bg
         val root = LinearLayout(this).apply {
@@ -55,7 +74,7 @@ class MainActivity : Activity() {
             insets
         }
         val header = TextView(this).apply {
-            text = "LinkSaver"
+            text = "LinkSaver 3.0"
             textSize = 29f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
@@ -68,7 +87,7 @@ class MainActivity : Activity() {
             background = shape(panel, 18.dp())
         }
         root.addView(card, margin(top = 24.dp()))
-        card.addView(label("Paste a direct media link", 16, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
+        card.addView(label("Paste a YouTube or video link", 16, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
         urlInput = EditText(this).apply {
             hint = "https://example.com/video.mp4"
             setHintTextColor(secondary)
@@ -90,7 +109,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(0, 48.dp(), 1f))
         actions.addView(actionButton("Download", true) { startDownload() },
             LinearLayout.LayoutParams(0, 48.dp(), 1.5f).apply { leftMargin = 10.dp() })
-        statusText = label("Supports direct MP4, WebM, MOV, M4V, MP3 and M4A links.", 13, secondary)
+        statusText = label("Preparing video download engine…", 13, secondary)
         root.addView(statusText, margin(top = 15.dp()))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
         root.addView(heading, margin(top = 25.dp()))
@@ -131,9 +150,8 @@ class MainActivity : Activity() {
             return
         }
         val host = uri.host!!.lowercase()
-        if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be" ||
-            host == "music.youtube.com" || host == "m.youtube.com") {
-            statusText.text = "YouTube watch pages are not direct files. Use YouTube's official offline feature."
+        if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be") {
+            downloadYouTube(raw)
             return
         }
         val filePart = uri.lastPathSegment.orEmpty()
@@ -164,6 +182,66 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             statusText.text = "Download could not start: " + (e.message ?: "Unknown error")
         }
+    }
+
+
+    private fun downloadYouTube(url: String) {
+        if (!extractorReady) {
+            statusText.text = "Video engine is preparing. Try again in a moment."
+            return
+        }
+        if (extractorBusy) {
+            statusText.text = "A video is already downloading."
+            return
+        }
+        extractorBusy = true
+        statusText.text = "Connecting to YouTube…"
+        Thread {
+            try {
+                val directory = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "youtube")
+                if (!directory.exists()) directory.mkdirs()
+                val started = System.currentTimeMillis()
+                val request = YoutubeDLRequest(url)
+                request.addOption("--no-playlist")
+                request.addOption("--no-overwrites")
+                request.addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best")
+                request.addOption("--merge-output-format", "mp4")
+                request.addOption("-o", File(directory, "%(title).80s_%(id)s.%(ext)s").absolutePath)
+                YoutubeDL.getInstance().execute(request, { progress, eta ->
+                    runOnUiThread {
+                        statusText.text = "Downloading YouTube video: " + progress.toInt() + "% • ETA " + eta + "s"
+                    }
+                })
+                val outputs = directory.listFiles()?.filter {
+                    it.isFile && it.lastModified() >= started - 3000 &&
+                        !it.name.endsWith(".part") && !it.name.endsWith(".ytdl")
+                }.orEmpty()
+                if (outputs.isEmpty()) throw IllegalStateException("No completed video file found")
+                val latest = outputs.maxByOrNull { it.lastModified() }!!
+                val mime = if (latest.extension.equals("webm", true)) "video/webm" else "video/mp4"
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, latest.name)
+                    put(MediaStore.Downloads.MIME_TYPE, mime)
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/LinkSaver")
+                }
+                val destination = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("Cannot save to Downloads")
+                try {
+                    contentResolver.openOutputStream(destination)?.use { output ->
+                        FileInputStream(latest).use { input -> input.copyTo(output) }
+                    } ?: throw IllegalStateException("Cannot write video")
+                } catch (e: Exception) {
+                    contentResolver.delete(destination, null, null)
+                    throw e
+                }
+                latest.delete()
+                runOnUiThread { statusText.text = "Saved to Downloads/LinkSaver: " + latest.name }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "YouTube download failed: " + (e.message ?: "Video unavailable") }
+            } finally {
+                extractorBusy = false
+            }
+        }.start()
     }
 
     private fun savedIds(): List<Long> = prefs.getString("ids", "").orEmpty()
