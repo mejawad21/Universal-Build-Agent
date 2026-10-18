@@ -57,7 +57,7 @@ class MainActivity : Activity() {
             try {
                 YoutubeDL.getInstance().init(applicationContext)
                 FFmpeg.getInstance().init(applicationContext)
-                runOnUiThread { statusText.text = "Updating YouTube download engine…" }
+                runOnUiThread { statusText.text = "Updating social video engine…" }
                 try {
                     YoutubeDL.getInstance().updateYoutubeDL(applicationContext, UpdateChannel.NIGHTLY)
                 } catch (updateError: Exception) {
@@ -82,7 +82,7 @@ class MainActivity : Activity() {
             insets
         }
         val header = TextView(this).apply {
-            text = "LinkSaver 3.3"
+            text = "LinkSaver 4.0"
             textSize = 29f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
@@ -95,7 +95,7 @@ class MainActivity : Activity() {
             background = shape(panel, 18.dp())
         }
         root.addView(card, margin(top = 24.dp()))
-        card.addView(label("Paste a YouTube or video link", 16, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
+        card.addView(label("Paste a social media or video link", 16, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
         urlInput = EditText(this).apply {
             hint = "https://example.com/video.mp4"
             setHintTextColor(secondary)
@@ -106,7 +106,7 @@ class MainActivity : Activity() {
             backgroundTintList = ColorStateList.valueOf(accent)
         }
         card.addView(urlInput, margin(top = 8.dp()))
-        card.addView(label("Video quality (YouTube)", 14, secondary), margin(top = 12.dp()))
+        card.addView(label("Video quality (where available)", 14, secondary), margin(top = 12.dp()))
         qualitySpinner = Spinner(this).apply {
             val choices = arrayOf("360p • Most compatible", "480p", "720p • HD", "1080p • Full HD")
             val qualityAdapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, choices)
@@ -174,7 +174,17 @@ class MainActivity : Activity() {
         }
         val host = uri.host!!.lowercase()
         if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be") {
-            downloadYouTube(raw, intArrayOf(360, 480, 720, 1080)[qualitySpinner.selectedItemPosition.coerceIn(0, 3)])
+            downloadSocial(raw, intArrayOf(360, 480, 720, 1080)[qualitySpinner.selectedItemPosition.coerceIn(0, 3)], true)
+            return
+        }
+        val socialDomains = listOf(
+            "instagram.com", "facebook.com", "fb.watch", "tiktok.com", "twitter.com",
+            "x.com", "reddit.com", "redd.it", "vimeo.com", "dailymotion.com",
+            "pinterest.com", "pin.it", "threads.net", "twitch.tv", "kick.com",
+            "snapchat.com", "soundcloud.com", "bilibili.com"
+        )
+        if (socialDomains.any { host == it || host.endsWith(".$it") }) {
+            downloadSocial(raw, intArrayOf(360, 480, 720, 1080)[qualitySpinner.selectedItemPosition.coerceIn(0, 3)], false)
             return
         }
         val filePart = uri.lastPathSegment.orEmpty()
@@ -208,7 +218,7 @@ class MainActivity : Activity() {
     }
 
 
-    private fun downloadYouTube(url: String, quality: Int) {
+    private fun downloadSocial(url: String, quality: Int, isYouTube: Boolean) {
         if (!extractorReady) {
             statusText.text = "Video engine is preparing. Try again in a moment."
             return
@@ -218,18 +228,23 @@ class MainActivity : Activity() {
             return
         }
         extractorBusy = true
-        statusText.text = "Connecting to YouTube…"
+        statusText.text = "Connecting to video platform…"
         Thread {
             try {
-                val directory = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "youtube")
+                val directory = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "social")
                 if (!directory.exists()) directory.mkdirs()
                 val started = System.currentTimeMillis()
                 val request = YoutubeDLRequest(url)
                 request.addOption("--no-playlist")
                 request.addOption("--no-update")
-                request.addOption("--extractor-args", "youtube:player_client=android")
+                if (isYouTube) request.addOption("--extractor-args", "youtube:player_client=android")
                 request.addOption("--no-overwrites")
-                val format = if (quality == 360) "18/best[height<=360]/best[height<=480]" else "best[height<=$quality]/bestvideo[height<=$quality]+bestaudio/18"
+                val format = if (isYouTube) {
+                    if (quality == 360) "18/best[height<=360]/best[height<=480]"
+                    else "best[height<=$quality]/bestvideo[height<=$quality]+bestaudio/18"
+                } else {
+                    "best[height<=$quality]/bestvideo[height<=$quality]+bestaudio/best"
+                }
                 request.addOption("-f", format)
                 request.addOption("--merge-output-format", "mp4")
                 request.addOption("-o", File(directory, "%(title).80s_%(id)s.%(ext)s").absolutePath)
@@ -244,7 +259,13 @@ class MainActivity : Activity() {
                 }.orEmpty()
                 if (outputs.isEmpty()) throw IllegalStateException("No completed video file found")
                 val latest = outputs.maxByOrNull { it.lastModified() }!!
-                val mime = if (latest.extension.equals("webm", true)) "video/webm" else "video/mp4"
+                val mime = when (latest.extension.lowercase()) {
+                    "webm" -> "video/webm"
+                    "m4a" -> "audio/mp4"
+                    "mp3" -> "audio/mpeg"
+                    "mov" -> "video/quicktime"
+                    else -> "video/mp4"
+                }
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, latest.name)
                     put(MediaStore.Downloads.MIME_TYPE, mime)
@@ -263,7 +284,7 @@ class MainActivity : Activity() {
                 latest.delete()
                 runOnUiThread { statusText.text = "Saved to Downloads/LinkSaver: " + latest.name }
             } catch (e: Exception) {
-                runOnUiThread { statusText.text = if (e.message?.contains("403") == true) "YouTube refused this stream (403). Try another video or update the engine." else "YouTube download failed: " + (e.message ?: "Video unavailable") }
+                runOnUiThread { statusText.text = if (e.message?.contains("403") == true) "This platform refused the stream (403). The post may be restricted." else "Video download failed: " + (e.message ?: "Video unavailable") }
             } finally {
                 extractorBusy = false
             }
