@@ -63,7 +63,7 @@ class MainActivity : Activity() {
                     runOnUiThread { statusText.text = "Engine update unavailable. Using bundled version." }
                 }
                 extractorReady = true
-                runOnUiThread { if (!extractorBusy) statusText.text = "Ready for YouTube links and direct media files." }
+                runOnUiThread { if (!extractorBusy) statusText.text = "Video engine ready. YouTube downloads depend on available streams." }
             } catch (e: Exception) {
                 runOnUiThread { statusText.text = "Video engine unavailable: " + (e.message ?: "Initialization failed") }
             }
@@ -81,7 +81,7 @@ class MainActivity : Activity() {
             insets
         }
         val header = TextView(this).apply {
-            text = "LinkSaver 3.1"
+            text = "LinkSaver 3.2"
             textSize = 29f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
@@ -211,9 +211,9 @@ class MainActivity : Activity() {
                 val request = YoutubeDLRequest(url)
                 request.addOption("--no-playlist")
                 request.addOption("--no-update")
-                request.addOption("--extractor-args", "youtube:player_client=android_vr,web")
+                request.addOption("--extractor-args", "youtube:player_client=android")
                 request.addOption("--no-overwrites")
-                request.addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best")
+                request.addOption("-f", "18/best[height<=720]/best")
                 request.addOption("--merge-output-format", "mp4")
                 request.addOption("-o", File(directory, "%(title).80s_%(id)s.%(ext)s").absolutePath)
                 YoutubeDL.getInstance().execute(request, null, { progress, eta, _ ->
