@@ -25,6 +25,7 @@ import android.provider.MediaStore
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import com.yausername.ffmpeg.FFmpeg
+import com.yausername.youtubedl_android.YoutubeDL.UpdateChannel
 
 class MainActivity : Activity() {
     private val bg = Color.rgb(13, 17, 29)
@@ -55,6 +56,12 @@ class MainActivity : Activity() {
             try {
                 YoutubeDL.getInstance().init(applicationContext)
                 FFmpeg.getInstance().init(applicationContext)
+                runOnUiThread { statusText.text = "Updating YouTube download engine…" }
+                try {
+                    YoutubeDL.getInstance().updateYoutubeDL(applicationContext, UpdateChannel.NIGHTLY)
+                } catch (updateError: Exception) {
+                    runOnUiThread { statusText.text = "Engine update unavailable. Using bundled version." }
+                }
                 extractorReady = true
                 runOnUiThread { if (!extractorBusy) statusText.text = "Ready for YouTube links and direct media files." }
             } catch (e: Exception) {
@@ -74,7 +81,7 @@ class MainActivity : Activity() {
             insets
         }
         val header = TextView(this).apply {
-            text = "LinkSaver 3.0"
+            text = "LinkSaver 3.1"
             textSize = 29f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
@@ -203,6 +210,8 @@ class MainActivity : Activity() {
                 val started = System.currentTimeMillis()
                 val request = YoutubeDLRequest(url)
                 request.addOption("--no-playlist")
+                request.addOption("--no-update")
+                request.addOption("--extractor-args", "youtube:player_client=android_vr,web")
                 request.addOption("--no-overwrites")
                 request.addOption("-f", "bestvideo[height<=720]+bestaudio/best[height<=720]/best")
                 request.addOption("--merge-output-format", "mp4")
@@ -237,7 +246,7 @@ class MainActivity : Activity() {
                 latest.delete()
                 runOnUiThread { statusText.text = "Saved to Downloads/LinkSaver: " + latest.name }
             } catch (e: Exception) {
-                runOnUiThread { statusText.text = "YouTube download failed: " + (e.message ?: "Video unavailable") }
+                runOnUiThread { statusText.text = if (e.message?.contains("403") == true) "YouTube refused this stream (403). Try another video or update the engine." else "YouTube download failed: " + (e.message ?: "Video unavailable") }
             } finally {
                 extractorBusy = false
             }
