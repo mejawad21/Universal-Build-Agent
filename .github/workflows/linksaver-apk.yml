@@ -1,18 +1,16 @@
-name: LinkSaver Android APK
+name: Build LinkSaver APK
 on:
   workflow_dispatch:
   push:
     paths:
       - 'LinkSaver-Android/**'
       - '.github/workflows/linksaver-apk.yml'
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: LinkSaver-Android
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -20,14 +18,17 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build APK
-        run: gradle --no-daemon assembleDebug
-      - uses: actions/upload-artifact@v4
+      - name: Install SDK packages
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile debug APK
+        working-directory: LinkSaver-Android
+        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
         with:
-          name: LinkSaver-debug-apk
+          name: LinkSaver-APK
           path: LinkSaver-Android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
