@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.text.InputType
+import android.content.ActivityNotFoundException
 import android.widget.*
 import java.net.URLConnection
 
@@ -88,7 +89,7 @@ class MainActivity : Activity() {
                 .setTitle(name)
                 .setDescription("Downloading with LinkSaver")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "LinkSaver_" + System.currentTimeMillis() + "_" + name)
                 .setMimeType(URLConnection.guessContentTypeFromName(name) ?: "application/octet-stream")
             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
             val id = manager.enqueue(req)
