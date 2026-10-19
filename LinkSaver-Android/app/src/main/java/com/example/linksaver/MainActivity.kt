@@ -28,10 +28,10 @@ import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL.UpdateChannel
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(13, 17, 29)
-    private val panel = Color.rgb(26, 33, 50)
-    private val accent = Color.rgb(107, 143, 255)
-    private val secondary = Color.rgb(174, 186, 207)
+    private val bg = Color.rgb(8, 14, 13)
+    private val panel = Color.rgb(20, 31, 28)
+    private val accent = Color.rgb(190, 239, 117)
+    private val secondary = Color.rgb(159, 176, 168)
     private lateinit var urlInput: EditText
     private lateinit var qualitySpinner: Spinner
     private lateinit var statusText: TextView
@@ -53,65 +53,103 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-        Thread {
-            try {
-                YoutubeDL.getInstance().init(applicationContext)
-                FFmpeg.getInstance().init(applicationContext)
-                runOnUiThread { statusText.text = "Updating social video engine…" }
-                try {
-                    YoutubeDL.getInstance().updateYoutubeDL(applicationContext, UpdateChannel.NIGHTLY)
-                } catch (updateError: Exception) {
-                    runOnUiThread { statusText.text = "Engine update unavailable. Using bundled version." }
-                }
-                extractorReady = true
-                runOnUiThread { if (!extractorBusy) statusText.text = "Video engine ready. YouTube downloads depend on available streams." }
-            } catch (e: Exception) {
-                runOnUiThread { statusText.text = "Video engine unavailable: " + (e.message ?: "Initialization failed") }
-            }
-        }.start()
         window.statusBarColor = bg
         window.navigationBarColor = bg
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
-            setPadding(20.dp(), 16.dp(), 20.dp(), 12.dp())
         }
         root.setOnApplyWindowInsetsListener { view, insets ->
             val bars = if (android.os.Build.VERSION.SDK_INT >= 30) insets.getInsets(WindowInsets.Type.systemBars()) else null
-            view.setPadding(20.dp() + (bars?.left ?: insets.systemWindowInsetLeft), 16.dp() + (bars?.top ?: insets.systemWindowInsetTop), 20.dp() + (bars?.right ?: insets.systemWindowInsetRight), 12.dp() + (bars?.bottom ?: insets.systemWindowInsetBottom))
+            view.setPadding(
+                18.dp() + (bars?.left ?: insets.systemWindowInsetLeft),
+                8.dp() + (bars?.top ?: insets.systemWindowInsetTop),
+                18.dp() + (bars?.right ?: insets.systemWindowInsetRight),
+                8.dp() + (bars?.bottom ?: insets.systemWindowInsetBottom)
+            )
             insets
         }
-        val header = TextView(this).apply {
-            text = "LinkSaver 4.0"
-            textSize = 29f
+
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 8.dp(), 0, 18.dp())
+        }
+
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val mark = TextView(this).apply {
+            text = "L"
+            textSize = 23f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(bg)
+            gravity = android.view.Gravity.CENTER
+            background = shape(accent, 14.dp())
+        }
+        brandRow.addView(mark, LinearLayout.LayoutParams(46.dp(), 46.dp()))
+        val brandCopy = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(12.dp(), 0, 0, 0)
+        }
+        brandCopy.addView(TextView(this).apply {
+            text = "LINKSAVER"
+            textSize = 17f
+            letterSpacing = 0.11f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
+        })
+        brandCopy.addView(label("VIDEO DOWNLOADER", 10, secondary))
+        brandRow.addView(brandCopy, LinearLayout.LayoutParams(0, -2, 1f))
+        val premium = TextView(this).apply {
+            text = "PLUS"
+            textSize = 10f
+            letterSpacing = 0.08f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(accent)
+            setPadding(12.dp(), 7.dp(), 12.dp(), 7.dp())
+            background = shape(Color.rgb(30, 45, 35), 24.dp())
         }
-        root.addView(header)
-        root.addView(label("Video & audio download manager", 14, secondary), margin(top = 2.dp()))
+        brandRow.addView(premium)
+        page.addView(brandRow)
+
+        page.addView(label("Your media,\none tap away.", 30, Color.WHITE).apply {
+            setTypeface(null, Typeface.BOLD)
+            setLineSpacing(0f, 1.0f)
+        }, margin(top = 25.dp()))
+        page.addView(label("Save videos and audio from links you share or paste.", 14, secondary), margin(top = 4.dp()))
+
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16.dp(), 16.dp(), 16.dp(), 16.dp())
-            background = shape(panel, 18.dp())
+            setPadding(16.dp(), 17.dp(), 16.dp(), 16.dp())
+            background = shape(panel, 22.dp())
         }
-        root.addView(card, margin(top = 24.dp()))
-        card.addView(label("Paste a social media or video link", 16, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
+        page.addView(card, margin(top = 22.dp()))
+        card.addView(label("VIDEO OR SOCIAL LINK", 11, accent).apply {
+            letterSpacing = 0.08f
+            setTypeface(null, Typeface.BOLD)
+        })
         urlInput = EditText(this).apply {
-            hint = "https://example.com/video.mp4"
-            setHintTextColor(secondary)
+            hint = "Paste a link to get started"
+            setHintTextColor(Color.rgb(128, 144, 156))
             setTextColor(Color.WHITE)
-            textSize = 14f
+            textSize = 15f
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             isSingleLine = true
-            backgroundTintList = ColorStateList.valueOf(accent)
+            setPadding(14.dp(), 13.dp(), 14.dp(), 13.dp())
+            background = shape(Color.rgb(12, 22, 20), 14.dp())
+            backgroundTintList = null
         }
-        card.addView(urlInput, margin(top = 8.dp()))
-        card.addView(label("Video quality (where available)", 14, secondary), margin(top = 12.dp()))
+        card.addView(urlInput, margin(top = 10.dp()))
+        card.addView(label("Choose your preferred video quality", 13, secondary), margin(top = 16.dp()))
         qualitySpinner = Spinner(this).apply {
-            val choices = arrayOf("360p • Most compatible", "480p", "720p • HD", "1080p • Full HD")
+            val choices = arrayOf("360p  ·  Most compatible", "480p", "720p  ·  HD", "1080p  ·  Full HD")
             val qualityAdapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, choices)
             qualityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             adapter = qualityAdapter
+            setPadding(10.dp(), 2.dp(), 10.dp(), 2.dp())
+            background = shape(Color.rgb(12, 22, 20), 14.dp())
             setSelection(prefs.getInt("quality_index", 0).coerceIn(0, 3))
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
@@ -120,39 +158,87 @@ class MainActivity : Activity() {
                 }
             }
         }
-        card.addView(qualitySpinner, margin(top = 4.dp()))
+        card.addView(qualitySpinner, margin(top = 8.dp()))
+
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        card.addView(actions, margin(top = 10.dp()))
-        actions.addView(actionButton("Paste", false) {
+        card.addView(actions, margin(top = 15.dp()))
+        actions.addView(actionButton("Paste link", false) {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip
-            val value = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this).toString() else ""
+            val value = if (clip != null && clip.itemCount > 0) clip.itemAt(0).coerceToText(this).toString() else ""
             urlInput.setText(value)
             urlInput.setSelection(urlInput.length())
-        }, LinearLayout.LayoutParams(0, 48.dp(), 1f))
-        actions.addView(actionButton("Download", true) { startDownload() },
-            LinearLayout.LayoutParams(0, 48.dp(), 1.5f).apply { leftMargin = 10.dp() })
-        statusText = label("Preparing video download engine…", 13, secondary)
-        root.addView(statusText, margin(top = 15.dp()))
-        val heading = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL }
-        root.addView(heading, margin(top = 25.dp()))
-        heading.addView(label("Downloads", 21, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) },
-            LinearLayout.LayoutParams(0, -2, 1f))
+        }, LinearLayout.LayoutParams(0, 50.dp(), 1f))
+        actions.addView(actionButton("Download  ↓", true) { startDownload() },
+            LinearLayout.LayoutParams(0, 50.dp(), 1.5f).apply { leftMargin = 10.dp() })
+
+        val supported = label("YouTube  ·  Instagram  ·  TikTok  ·  X  ·  1000+ sites", 11, secondary).apply {
+            gravity = android.view.Gravity.CENTER
+        }
+        page.addView(supported, margin(top = 12.dp()))
+
+        val statusCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(12.dp(), 8.dp(), 12.dp(), 8.dp())
+            background = shape(Color.rgb(17, 29, 25), 14.dp())
+        }
+        val statusDot = TextView(this).apply {
+            text = "●"
+            textSize = 10f
+            setTextColor(accent)
+            setPadding(0, 0, 8.dp(), 0)
+        }
+        statusCard.addView(statusDot)
+        statusText = label("Preparing your download engine…", 12, secondary).apply { setPadding(0, 4.dp(), 0, 4.dp()) }
+        statusCard.addView(statusText, LinearLayout.LayoutParams(0, -2, 1f))
+        page.addView(statusCard, margin(top = 17.dp()))
+
+        val heading = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        page.addView(heading, margin(top = 26.dp()))
+        val headingCopy = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        headingCopy.addView(label("Your downloads", 21, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
+        headingCopy.addView(label("Recent activity", 12, secondary))
+        heading.addView(headingCopy, LinearLayout.LayoutParams(0, -2, 1f))
         heading.addView(actionButton("Refresh", false) { renderDownloads() })
-        val scroll = ScrollView(this).apply { isFillViewport = false }
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(list)
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp() })
-        root.addView(actionButton("Open Downloads", false) {
+        page.addView(list, margin(top = 12.dp()))
+        page.addView(actionButton("Open Downloads folder", false) {
             try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
             catch (_: Exception) { statusText.text = "Open the Files app and select Downloads." }
         }, margin(top = 8.dp()))
+
+        val scroll = ScrollView(this).apply { isFillViewport = false; clipToPadding = false }
+        scroll.addView(page)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
         receiveSharedUrl(intent)
         renderDownloads()
+
+        Thread {
+            try {
+                YoutubeDL.getInstance().init(applicationContext)
+                FFmpeg.getInstance().init(applicationContext)
+                runOnUiThread { statusText.text = "Updating video engine…" }
+                try {
+                    YoutubeDL.getInstance().updateYoutubeDL(applicationContext, UpdateChannel.NIGHTLY)
+                } catch (_: Exception) {
+                    runOnUiThread { statusText.text = "Using the bundled video engine." }
+                }
+                extractorReady = true
+                runOnUiThread {
+                    if (!extractorBusy) statusText.text = "Ready to download. Some posts may require public access."
+                }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "Video engine unavailable: " + (e.message ?: "Initialization failed") }
+            }
+        }.start()
     }
 
-    override fun onNewIntent(intent: Intent) {
+    override fun onNewIntent(intent: Intent) { {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSharedUrl(intent)
@@ -386,8 +472,11 @@ class MainActivity : Activity() {
         text = title
         textSize = 13f
         isAllCaps = false
-        setTextColor(Color.WHITE)
-        backgroundTintList = ColorStateList.valueOf(if (primary) Color.rgb(62, 99, 211) else Color.rgb(58, 68, 91))
+        setTypeface(null, Typeface.BOLD)
+        setTextColor(if (primary) Color.rgb(12, 21, 15) else Color.WHITE)
+        backgroundTintList = null
+        background = shape(if (primary) accent else Color.rgb(37, 50, 46), 15.dp())
+        elevation = if (primary) 3.dp().toFloat() else 0f
         setOnClickListener { onTap() }
     }
 

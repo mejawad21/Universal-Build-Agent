@@ -9,7 +9,7 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.14
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -34,22 +34,22 @@ jobs:
         run: |
           APK="LinkSaver-Android/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionName='4.0'"
-          cp "$APK" LinkSaver-v4.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionName='4.1'"
+          cp "$APK" LinkSaver-v4.1.apk
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LinkSaver-v4.0-APK
-          path: LinkSaver-v4.0.apk
+          name: LinkSaver-v4.1-APK
+          path: LinkSaver-v4.1.apk
           if-no-files-found: error
       - name: Publish directly downloadable APK in GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          TAG="linksaver-v4.0.0"
+          TAG="linksaver-v4.1.0"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" LinkSaver-v4.0.apk --clobber
+            gh release upload "$TAG" LinkSaver-v4.1.apk --clobber
           else
-            gh release create "$TAG" LinkSaver-v4.0.apk --title "LinkSaver 4.0 Social Video Downloader APK" --notes "LinkSaver 4.0 with automatic yt-dlp engine updates. Download only content you are authorized to save." --target "$GITHUB_SHA"
+            gh release create "$TAG" LinkSaver-v4.1.apk --title "LinkSaver 4.1 Social Video Downloader APK" --notes "LinkSaver 4.1 with automatic yt-dlp engine updates. Download only content you are authorized to save." --target "$GITHUB_SHA"
           fi
