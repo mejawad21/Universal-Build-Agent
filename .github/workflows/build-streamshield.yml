@@ -43,9 +43,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="streamshield-v2.4"
+          TAG="streamshield-v2.5"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" StreamShield.apk --clobber
           else
-            gh release create "$TAG" StreamShield.apk --title "StreamShield 2.4 APK" --notes "Swipe left to dismiss in-app mini-player and periodic playback resume attempts; playback is experimental." --target "$GITHUB_SHA"
+            gh release create "$TAG" StreamShield.apk --title "StreamShield 2.5 APK" --notes "Preloaded browsing WebView, preserved video WebView layout during mini mode, and swipe-left or X dismissal. Playback still depends on YouTube WebView behavior." --target "$GITHUB_SHA"
           fi
