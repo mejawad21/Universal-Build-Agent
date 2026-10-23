@@ -79,6 +79,7 @@ public class MainActivity extends Activity {
  FrameLayout.LayoutParams small=new FrameLayout.LayoutParams(dp(220),dp(145),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
  small.setMargins(0,0,dp(10),dp(20));web.setLayoutParams(small);web.bringToFront();
  web.setBackgroundColor(Color.BLACK);
+ web.evaluateJavascript("(function(){try{var v=document.querySelector('video');if(!v)return false;var css='html,body{overflow:hidden!important;background:#000!important}body *{visibility:hidden!important}video{visibility:visible!important;position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;object-fit:contain!important;z-index:2147483647!important;background:#000!important;transform:none!important}';var s=document.getElementById('ss-mini-video-style');if(!s){s=document.createElement('style');s.id='ss-mini-video-style';document.head.appendChild(s);}s.textContent=css;v.scrollIntoView({block:'start'});return true;}catch(e){return false;}})()",null);
  browseWeb.loadUrl(HOME);
  miniHolder=new FrameLayout(this);
  FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(dp(220),dp(145),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
@@ -92,6 +93,7 @@ public class MainActivity extends Activity {
  void resumeMiniVideo(){if(miniMode&&web!=null)web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}
  void closeMiniPlayer(){
  if(!miniMode)return;miniMode=false;
+ web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-video-style');if(s)s.remove();})()",null);
  if(miniHolder!=null){contentHost.removeView(miniHolder);miniHolder=null;}
  if(browseWeb!=null){contentHost.removeView(browseWeb);browseWeb.destroy();browseWeb=null;}
  web.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));
