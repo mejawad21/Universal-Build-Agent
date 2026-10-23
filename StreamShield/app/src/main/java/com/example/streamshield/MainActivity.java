@@ -22,15 +22,9 @@ public class MainActivity extends Activity {
  WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; FrameLayout contentHost; LinearLayout pageLayout;
  final Handler handler=new Handler(Looper.getMainLooper());
  final Runnable adCheck=new Runnable(){public void run(){if(web!=null){web.evaluateJavascript(AD_SCRIPT,null);handler.postDelayed(this,1500);}}};
- static final String AD_SCRIPT="(function(){try{"+
- "if(!document.getElementById('ss-style')){var s=document.createElement('style');s.id='ss-style';s.textContent='ytd-display-ad-renderer,ytd-promoted-sparkles-web-renderer,ytd-promoted-video-renderer,ytd-ad-slot-renderer,ytd-in-feed-ad-layout-renderer,ytd-banner-promo-renderer,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-video-renderer,ytm-ad-slot-renderer,ytm-statement-banner-renderer,.ytp-ad-overlay-container,.ytp-ad-message-container,.ytp-ad-player-overlay,.video-ads,.ad-container,.masthead-ad-control,.ytd-ad-slot-renderer{display:none!important}';document.documentElement.appendChild(s);}"+
- "var skip=document.querySelector('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad-button,.ytp-ad-skip-button-slot button,.ytp-ad-skip-button-container button,button[aria-label*=\\\"Skip ad\\\"]');if(skip)skip.click();"+
- "var ad=document.querySelector('.ad-showing,.ytp-ad-player-overlay,.ytp-ad-text-overlay');"+
- "if(ad){var v=document.querySelector('video');if(v){if(!v.dataset.ssMuted){v.dataset.ssMuted='1';v.dataset.ssWasMuted=v.muted?'1':'0';}v.muted=true;if(v.duration&&isFinite(v.duration)&&v.duration>0&&v.currentTime<v.duration-0.4){try{v.currentTime=v.duration-0.2;}catch(e){}}}}"+
- "else{var v=document.querySelector('video[data-ss-muted]');if(v){v.muted=v.dataset.ssWasMuted==='1';delete v.dataset.ssMuted;delete v.dataset.ssWasMuted;}}"+
- "}catch(e){}})();";
+ static final String AD_SCRIPT="(function(){/* No ad seek/mute/skip: avoid disrupting video playback. */})()";
  static final String HOME="https://m.youtube.com/";
- static final String[] BLOCKED={"doubleclick.net","googleadservices.com","googlesyndication.com","adservice.google.com","pagead2.googlesyndication.com","adnxs.com","taboola.com","outbrain.com"};
+ static final String[] BLOCKED={};
  @Override public void onCreate(Bundle b) { super.onCreate(b);
  getWindow().getDecorView().setSystemUiVisibility(0);
  getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);
