@@ -6,6 +6,8 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Rational;
 import android.view.MotionEvent;
 import android.view.View;
@@ -31,6 +33,7 @@ public class MainActivity extends Activity {
     private boolean pipRequested;
     private boolean wasPlaying;
     private boolean pipActive;
+    private final Handler pipHandler = new Handler(Looper.getMainLooper());
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -178,7 +181,7 @@ public class MainActivity extends Activity {
             web.postDelayed(() -> {
                 if (pipActive) web.evaluateJavascript(
                     "(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()", null);
-            }, 350);
+            }, 1000);
         }
         if (!enabled) pipRequested = false;
     }
