@@ -1,4 +1,4 @@
-name: Build Velo Player Resume Update
+name: Build Velo Player v1.2
 on:
   push:
     paths:
@@ -53,8 +53,51 @@ jobs:
                     .putLong(videoUri,player.getCurrentPosition()).commit();''')
           s=s.replace('''        handler.removeCallbacksAndMessages(null);release();super.onDestroy();''','''        handler.removeCallbacksAndMessages(null);release();super.onDestroy();''')
           p.write_text(s)
+          main=Path('/tmp/velo/app/src/main/java/com/velo/player/MainActivity.java')
+          ms=main.read_text()
+          ms=ms.replace('import android.graphics.Color;', 'import android.graphics.Color;\\nimport android.graphics.Bitmap;\\nimport android.widget.ImageView;\\nimport android.util.Size;\\nimport android.os.Handler;\\nimport android.os.Looper;\\nimport java.util.concurrent.Executors;\\nimport java.util.concurrent.ExecutorService;\\nimport java.util.HashMap;')
+          ms=ms.replace('    int tab=0; String searchText="", selectedFolder=null;', '    final ExecutorService thumbnailWorkers=Executors.newFixedThreadPool(2);\\n    final Handler uiHandler=new Handler(Looper.getMainLooper());\\n    final HashMap<String,Bitmap> thumbnailCache=new HashMap<>();\\n    int tab=0; String searchText="", selectedFolder=null;')
+          ms=ms.replace('        getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);', '        getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);\\n        getWindow().getDecorView().setSystemUiVisibility(0);')
+          ms=ms.replace('        parent.setBackgroundColor(BG);parent.setPadding(dp(17),dp(12),dp(17),0);','        parent.setBackgroundColor(BG);parent.setPadding(dp(17),dp(12),dp(17),dp(10));')
+          ms=ms.replace('        parent.addView(videoList,new LinearLayout.LayoutParams(-1,0,1));','        parent.addView(videoList,new LinearLayout.LayoutParams(-1,0,1));')
+          ms=ms.replace('            TextView tile=tv(folderRow?"▣":"▶",25,GREEN,true);\n            tile.setGravity(Gravity.CENTER);tile.setBackground(shape(0xFF29364B,11));\n            row.addView(tile,lp(81,66));', '''            android.widget.FrameLayout previewBox=new android.widget.FrameLayout(MainActivity.this);
+            previewBox.setBackground(shape(0xFF29364B,11));
+            ImageView image=new ImageView(MainActivity.this);
+            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            previewBox.addView(image,new android.widget.FrameLayout.LayoutParams(-1,-1));
+            TextView tile=tv(folderRow?"▣":"▶",25,GREEN,true);
+            tile.setGravity(Gravity.CENTER);
+            previewBox.addView(tile,new android.widget.FrameLayout.LayoutParams(-1,-1));
+            row.addView(previewBox,lp(96,66));
+            if(!folderRow){
+                Video entry=shown.get(index);
+                String key=entry.uri.toString();
+                image.setTag(key);
+                Bitmap cached=thumbnailCache.get(key);
+                if(cached!=null){image.setImageBitmap(cached);tile.setVisibility(View.GONE);}
+                else thumbnailWorkers.execute(()->{
+                    try{
+                        Bitmap bmp;
+                        if(Build.VERSION.SDK_INT>=29)bmp=getContentResolver().loadThumbnail(entry.uri,new Size(192,132),null);
+                        else bmp=MediaStore.Video.Thumbnails.getThumbnail(getContentResolver(),
+                            Long.parseLong(entry.uri.getLastPathSegment()),MediaStore.Video.Thumbnails.MINI_KIND,null);
+                        if(bmp!=null){
+                            final Bitmap result=bmp;
+                            uiHandler.post(()->{
+                                thumbnailCache.put(key,result);
+                                if(key.equals(image.getTag())){image.setImageBitmap(result);tile.setVisibility(View.GONE);}
+                            });
+                        }
+                    }catch(Exception ignored){}
+                });
+            }''')
+          ms=ms.replace('subline=clock(v.duration)+"  ·  "+v.folder+"  ·  "+v.size/1048576+" MB";', 'subline=clock(v.duration)+"  ·  "+v.folder+"  ·  "+String.format(Locale.US,"%.1f MB",v.size/1048576.0);')
+          main.write_text(ms)
+          manifest=Path('/tmp/velo/app/src/main/AndroidManifest.xml')
+          xml=manifest.read_text().replace('android:allowBackup="false"','android:allowBackup="false"')
+          manifest.write_text(xml)
           gradle=Path('/tmp/velo/app/build.gradle')
-          gradle.write_text(gradle.read_text().replace('versionCode 1','versionCode 2').replace("versionName '1.0'","versionName '1.1'"))
+          gradle.write_text(gradle.read_text().replace('versionCode 1','versionCode 2').replace("versionName '1.0'","versionName '1.2'"))
           PY
       - name: Android SDK setup
         run: |
@@ -65,5 +108,5 @@ jobs:
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: Velo-Player-Resume-v1.1
+          name: Velo-Player-v1.2
           path: /tmp/velo/app/build/outputs/apk/debug/app-debug.apk
