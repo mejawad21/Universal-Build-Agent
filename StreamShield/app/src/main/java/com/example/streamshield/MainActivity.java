@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
  Button home=new Button(this);home.setText("Home");controls.addView(home);
  EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHint("Search YouTube");controls.addView(search,new LinearLayout.LayoutParams(0,-2,1));
  Button go=new Button(this);go.setText("Go");controls.addView(go);
+ Button bg=new Button(this);bg.setText("BG");controls.addView(bg);
+ bg.setOnClickListener(v->toggleBackground());
  Button pip=new Button(this);pip.setText("PiP");controls.addView(pip);
  Button dl=new Button(this);dl.setText("↓");controls.addView(dl);
  layout.addView(controls);
@@ -60,6 +62,8 @@ public class MainActivity extends Activity {
  go.setOnClickListener(v->{String q=search.getText().toString().trim();if(q.startsWith("https://"))web.loadUrl(q);else web.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
  web.loadUrl(HOME);handler.postDelayed(adCheck,1500);
  }
+ boolean backgroundEnabled=false;
+ void toggleBackground(){backgroundEnabled=!backgroundEnabled;try{Intent i=new Intent(this,BackgroundService.class);if(backgroundEnabled){if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);Toast.makeText(this,"Background mode on. Playback depends on YouTube and Android.",Toast.LENGTH_LONG).show();}else{stopService(i);Toast.makeText(this,"Background mode off",Toast.LENGTH_SHORT).show();}}catch(Exception e){backgroundEnabled=false;Toast.makeText(this,"Background mode unavailable: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
  void startPip(){if(Build.VERSION.SDK_INT>=26){try{
  if(Build.VERSION.SDK_INT>=31){web.evaluateJavascript("(function(){var v=document.querySelector('video');return !!(v&&!v.paused);})()",result->enterPip());}
  else enterPip();
