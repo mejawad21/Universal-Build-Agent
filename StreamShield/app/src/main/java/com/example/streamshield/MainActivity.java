@@ -8,6 +8,14 @@ import android.widget.*;
 import java.io.ByteArrayInputStream;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Build;
+import android.app.PictureInPictureParams;
+import android.util.Rational;
+import android.app.DownloadManager;
+import android.content.Context;
+import android.os.Environment;
+import android.net.Uri;
+import android.content.Intent;
 public class MainActivity extends Activity {
  WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls;
  final Handler handler=new Handler(Looper.getMainLooper());
@@ -26,8 +34,25 @@ public class MainActivity extends Activity {
  Button back=new Button(this);back.setText("‹");controls.addView(back);
  Button home=new Button(this);home.setText("Home");controls.addView(home);
  EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHint("Search YouTube");controls.addView(search,new LinearLayout.LayoutParams(0,-2,1));
- Button go=new Button(this);go.setText("Go");controls.addView(go);layout.addView(controls);
+ Button go=new Button(this);go.setText("Go");controls.addView(go);
+ Button pip=new Button(this);pip.setText("PiP");controls.addView(pip);
+ Button dl=new Button(this);dl.setText("↓");controls.addView(dl);
+ layout.addView(controls);
+ pip.setOnClickListener(v->startPip());
+ dl.setOnClickListener(v->{String url=web.getUrl();if(url!=null && (url.contains("youtube.com/watch")||url.contains("youtu.be/")||url.contains("youtube.com/shorts/"))){Toast.makeText(this,"YouTube video downloads are not supported. Direct file downloads are supported.",Toast.LENGTH_LONG).show();}else{Toast.makeText(this,"Long-press a downloadable file link, or use a direct download URL.",Toast.LENGTH_LONG).show();}});
+
  web=new WebView(this);web.setBackgroundColor(Color.BLACK);web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);web.getSettings().setMediaPlaybackRequiresUserGesture(false);
+ web.setDownloadListener((url,userAgent,contentDisposition,mimeType,contentLength)->{try{
+ if(url==null || !(url.startsWith("https://")||url.startsWith("http://")))return;
+ DownloadManager.Request req=new DownloadManager.Request(Uri.parse(url));
+ req.setMimeType(mimeType);req.addRequestHeader("User-Agent",userAgent==null?"StreamShield":userAgent);
+ String cookies=CookieManager.getInstance().getCookie(url);if(cookies!=null)req.addRequestHeader("Cookie",cookies);
+ String filename=URLUtil.guessFileName(url,contentDisposition,mimeType);
+ req.setTitle(filename);req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+ req.setDestinationInExternalFilesDir(this,Environment.DIRECTORY_DOWNLOADS,filename);
+ ((DownloadManager)getSystemService(Context.DOWNLOAD_SERVICE)).enqueue(req);
+ Toast.makeText(this,"Download started: "+filename,Toast.LENGTH_SHORT).show();
+ }catch(Exception ex){Toast.makeText(this,"Download failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();}});
  web.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){v.evaluateJavascript(AD_SCRIPT,null);}@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){String host=r.getUrl().getHost();if(host!=null)for(String blocked:BLOCKED)if(host.equals(blocked)||host.endsWith("."+blocked))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));return null;}});
  web.setWebChromeClient(new WebChromeClient(){@Override public void onShowCustomView(View v,CustomViewCallback c){if(fullscreen!=null){c.onCustomViewHidden();return;}fullscreen=v;callback=c;controls.setVisibility(View.GONE);web.setVisibility(View.GONE);root.addView(v,new FrameLayout.LayoutParams(-1,-1));}@Override public void onHideCustomView(){if(fullscreen==null)return;root.removeView(fullscreen);fullscreen=null;controls.setVisibility(View.VISIBLE);web.setVisibility(View.VISIBLE);if(callback!=null)callback.onCustomViewHidden();callback=null;}});
  layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
@@ -35,6 +60,12 @@ public class MainActivity extends Activity {
  go.setOnClickListener(v->{String q=search.getText().toString().trim();if(q.startsWith("https://"))web.loadUrl(q);else web.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
  web.loadUrl(HOME);handler.postDelayed(adCheck,1500);
  }
+ void startPip(){if(Build.VERSION.SDK_INT>=26){try{
+ if(Build.VERSION.SDK_INT>=31){web.evaluateJavascript("(function(){var v=document.querySelector('video');return !!(v&&!v.paused);})()",result->enterPip());}
+ else enterPip();
+ }catch(Exception e){Toast.makeText(this,"Picture-in-picture unavailable",Toast.LENGTH_SHORT).show();}}}
+ void enterPip(){if(Build.VERSION.SDK_INT>=26){try{PictureInPictureParams params=new PictureInPictureParams.Builder().setAspectRatio(new Rational(16,9)).build();enterPictureInPictureMode(params);}catch(Exception e){Toast.makeText(this,"PiP is not supported on this device",Toast.LENGTH_SHORT).show();}}}
+ @Override public void onPictureInPictureModeChanged(boolean isInPip,android.content.res.Configuration config){super.onPictureInPictureModeChanged(isInPip,config);controls.setVisibility(isInPip?View.GONE:View.VISIBLE);}
  @Override public void onBackPressed(){if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
  @Override protected void onDestroy(){handler.removeCallbacks(adCheck);web.destroy();super.onDestroy();}
 }
