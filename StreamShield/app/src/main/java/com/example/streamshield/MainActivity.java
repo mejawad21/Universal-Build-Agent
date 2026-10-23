@@ -76,14 +76,17 @@ public class MainActivity extends Activity {
  browseWeb.setWebViewClient(new WebViewClient());browseWeb.loadUrl(HOME);
  pageLayout.removeView(web);pageLayout.addView(browseWeb,new LinearLayout.LayoutParams(-1,0,1));
  miniHolder=new FrameLayout(this);miniHolder.setBackgroundColor(Color.BLACK);
- FrameLayout.LayoutParams holderParams=new FrameLayout.LayoutParams(dp(220),dp(155),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
+ FrameLayout.LayoutParams holderParams=new FrameLayout.LayoutParams(dp(220),dp(220),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
  holderParams.setMargins(0,0,dp(10),dp(20));root.addView(miniHolder,holderParams);
  miniHolder.addView(web,new FrameLayout.LayoutParams(-1,-1));
+ handler.postDelayed(()->resumeMiniVideo(),350);handler.postDelayed(()->resumeMiniVideo(),1100);
  web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(!s){s=document.createElement('style');s.id='ss-mini-css';s.textContent='html,body{background:#000!important;overflow:hidden!important}video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;object-fit:contain!important;z-index:2147483647!important;background:black!important}';document.head.appendChild(s);}})()",null);
  Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.TOP|android.view.Gravity.RIGHT);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
+ Button play=new Button(this);play.setText("▶");FrameLayout.LayoutParams y=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.TOP|android.view.Gravity.LEFT);miniHolder.addView(play,y);play.setOnClickListener(v->resumeMiniVideo());
  Toast.makeText(this,"Mini player active — browse below",Toast.LENGTH_SHORT).show();
  });
  }
+ void resumeMiniVideo(){if(miniMode&&web!=null)web.evaluateJavascript("(function(){var v=document.querySelector(\'video\');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}
  void closeMiniPlayer(){
  if(!miniMode)return;miniMode=false;
  web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(s)s.remove();})()",null);
