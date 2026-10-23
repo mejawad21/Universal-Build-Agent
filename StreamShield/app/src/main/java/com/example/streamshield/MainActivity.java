@@ -41,7 +41,6 @@ public class MainActivity extends Activity {
             pipHandler.postDelayed(this, 1500);
         }
     };
-    private final Handler pipHandler = new Handler(Looper.getMainLooper());
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
