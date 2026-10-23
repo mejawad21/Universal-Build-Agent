@@ -207,7 +207,12 @@ public class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (fullscreenView != null) {
-            web.getWebChromeClient().onHideCustomView();
+            root.removeView(fullscreenView);
+            fullscreenView = null;
+            toolbar.setVisibility(View.VISIBLE);
+            web.setVisibility(View.VISIBLE);
+            if (fullscreenCallback != null) fullscreenCallback.onCustomViewHidden();
+            fullscreenCallback = null;
         } else if (web.canGoBack()) {
             web.goBack();
         } else {
