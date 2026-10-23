@@ -1,0 +1,30 @@
+package com.example.streamshield;
+import android.app.Activity;
+import android.os.Bundle;
+import android.graphics.Color;
+import android.view.View;
+import android.webkit.*;
+import android.widget.*;
+import java.io.ByteArrayInputStream;
+public class MainActivity extends Activity {
+ WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls;
+ static final String HOME="https://m.youtube.com/";
+ static final String[] BLOCKED={"doubleclick.net","googleadservices.com","googlesyndication.com","adservice.google.com"};
+ @Override public void onCreate(Bundle b) { super.onCreate(b);
+ root=new FrameLayout(this); LinearLayout layout=new LinearLayout(this);layout.setOrientation(1);
+ controls=new LinearLayout(this);controls.setBackgroundColor(Color.DKGRAY);
+ Button back=new Button(this);back.setText("‹");controls.addView(back);
+ Button home=new Button(this);home.setText("Home");controls.addView(home);
+ EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHint("Search YouTube");controls.addView(search,new LinearLayout.LayoutParams(0,-2,1));
+ Button go=new Button(this);go.setText("Go");controls.addView(go);layout.addView(controls);
+ web=new WebView(this);web.setBackgroundColor(Color.BLACK);web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);web.getSettings().setMediaPlaybackRequiresUserGesture(false);
+ web.setWebViewClient(new WebViewClient(){@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){String host=r.getUrl().getHost();if(host!=null)for(String blocked:BLOCKED)if(host.equals(blocked)||host.endsWith("."+blocked))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));return null;}});
+ web.setWebChromeClient(new WebChromeClient(){@Override public void onShowCustomView(View v,CustomViewCallback c){if(fullscreen!=null){c.onCustomViewHidden();return;}fullscreen=v;callback=c;controls.setVisibility(View.GONE);web.setVisibility(View.GONE);root.addView(v,new FrameLayout.LayoutParams(-1,-1));}@Override public void onHideCustomView(){if(fullscreen==null)return;root.removeView(fullscreen);fullscreen=null;controls.setVisibility(View.VISIBLE);web.setVisibility(View.VISIBLE);if(callback!=null)callback.onCustomViewHidden();callback=null;}});
+ layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
+ back.setOnClickListener(v->{if(web.canGoBack())web.goBack();});home.setOnClickListener(v->web.loadUrl(HOME));
+ go.setOnClickListener(v->{String q=search.getText().toString().trim();if(q.startsWith("https://"))web.loadUrl(q);else web.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
+ web.loadUrl(HOME);
+ }
+ @Override public void onBackPressed(){if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
+ @Override protected void onDestroy(){web.destroy();super.onDestroy();}
+}
