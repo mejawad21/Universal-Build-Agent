@@ -34,6 +34,14 @@ public class MainActivity extends Activity {
     private boolean wasPlaying;
     private boolean pipActive;
     private final Handler pipHandler = new Handler(Looper.getMainLooper());
+    private final Runnable playbackCheck = new Runnable() {
+        @Override public void run() {
+            if (!pipActive || !wasPlaying || web == null) return;
+            web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused&&!v.ended){v.play().catch(function(){});}})()", null);
+            pipHandler.postDelayed(this, 1500);
+        }
+    };
+    private final Handler pipHandler = new Handler(Looper.getMainLooper());
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -177,12 +185,8 @@ public class MainActivity extends Activity {
         super.onPictureInPictureModeChanged(enabled, config);
         pipActive = enabled;
         toolbar.setVisibility(enabled ? View.GONE : View.VISIBLE);
-        if (enabled && wasPlaying) {
-            web.postDelayed(() -> {
-                if (pipActive) web.evaluateJavascript(
-                    "(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()", null);
-            }, 1000);
-        }
+        pipHandler.removeCallbacks(playbackCheck);
+        if (enabled && wasPlaying) pipHandler.postDelayed(playbackCheck, 300);
         if (!enabled) pipRequested = false;
     }
 
@@ -202,6 +206,7 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        pipHandler.removeCallbacks(playbackCheck);
         if (web != null) web.destroy();
         super.onDestroy();
     }
