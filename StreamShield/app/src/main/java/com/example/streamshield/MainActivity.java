@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
  EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(Color.WHITE);search.setHint("Search YouTube");controls.addView(search,new LinearLayout.LayoutParams(0,-2,1));
  Button go=new Button(this);go.setText("Go");controls.addView(go);
  Button bg=new Button(this);bg.setText("BG");controls.addView(bg);
- bg.setOnClickListener(v->toggleBackground());
+ bg.setOnClickListener(v->startPip());
  Button pip=new Button(this);pip.setText("PiP");controls.addView(pip);
  Button dl=new Button(this);dl.setText("↓");controls.addView(dl);
  layout.addView(controls);
@@ -64,12 +64,21 @@ public class MainActivity extends Activity {
  }
  boolean backgroundEnabled=false;
  void toggleBackground(){backgroundEnabled=!backgroundEnabled;try{Intent i=new Intent(this,BackgroundService.class);if(backgroundEnabled){if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);Toast.makeText(this,"Background mode on. Playback depends on YouTube and Android.",Toast.LENGTH_LONG).show();}else{stopService(i);Toast.makeText(this,"Background mode off",Toast.LENGTH_SHORT).show();}}catch(Exception e){backgroundEnabled=false;Toast.makeText(this,"Background mode unavailable: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
- void startPip(){if(Build.VERSION.SDK_INT>=26){try{
- if(Build.VERSION.SDK_INT>=31){web.evaluateJavascript("(function(){var v=document.querySelector('video');return !!(v&&!v.paused);})()",result->enterPip());}
- else enterPip();
- }catch(Exception e){Toast.makeText(this,"Picture-in-picture unavailable",Toast.LENGTH_SHORT).show();}}}
- void enterPip(){if(Build.VERSION.SDK_INT>=26){try{PictureInPictureParams params=new PictureInPictureParams.Builder().setAspectRatio(new Rational(16,9)).build();enterPictureInPictureMode(params);}catch(Exception e){Toast.makeText(this,"PiP is not supported on this device",Toast.LENGTH_SHORT).show();}}}
- @Override public void onPictureInPictureModeChanged(boolean isInPip,android.content.res.Configuration config){super.onPictureInPictureModeChanged(isInPip,config);controls.setVisibility(isInPip?View.GONE:View.VISIBLE);}
+ void startPip(){
+ if(Build.VERSION.SDK_INT<26){Toast.makeText(this,"PiP requires Android 8+",Toast.LENGTH_SHORT).show();return;}
+ if(!getPackageManager().hasSystemFeature("android.software.picture_in_picture")){Toast.makeText(this,"PiP unsupported on this phone",Toast.LENGTH_LONG).show();return;}
+ web.evaluateJavascript("(function(){var v=document.querySelector('video');return !!v;})()",result->{
+ if(!"true".equals(result)){Toast.makeText(this,"Start a video before entering PiP",Toast.LENGTH_LONG).show();return;}
+ try{
+ PictureInPictureParams.Builder builder=new PictureInPictureParams.Builder().setAspectRatio(new Rational(16,9));
+ boolean ok=enterPictureInPictureMode(builder.build());
+ if(!ok)Toast.makeText(this,"Android refused PiP. Check app PiP permission.",Toast.LENGTH_LONG).show();
+ }catch(Exception e){Toast.makeText(this,"PiP failed: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+ });
+ }
+ @Override public void onPictureInPictureModeChanged(boolean isInPip,android.content.res.Configuration config){super.onPictureInPictureModeChanged(isInPip,config);controls.setVisibility(isInPip?View.GONE:View.VISIBLE);
+ if(isInPip && fullscreen!=null){try{web.getWebChromeClient().onHideCustomView();}catch(Exception ignored){}}
+ }
  @Override public void onBackPressed(){if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
  @Override protected void onDestroy(){handler.removeCallbacks(adCheck);web.destroy();super.onDestroy();}
 }
