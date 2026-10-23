@@ -23,15 +23,15 @@ jobs:
           s=p.read_text()
           s=s.replace('    int videoW=0,videoH=0,duration=0,fitMode=0,originPosition=0,originalVolume=0;', '    int videoW=0,videoH=0,duration=0,fitMode=0,originPosition=0,originalVolume=0;\n    boolean completedPlayback=false;')
           s=s.replace('        footer.addView(buttons,lp(-1,57));', '''        footer.addView(buttons,lp(-1,57));
-        caption.setOnLongClickListener(v->{startOver();return true;});''')
+                  caption.setOnLongClickListener(v->{startOver();return true;});''')
           s=s.replace('    void toggle(){', '''    void startOver(){
-        if(prepared&&player!=null){
+                  if(prepared&&player!=null){
             player.seekTo(0);
             getSharedPreferences("resume",MODE_PRIVATE).edit().remove(videoUri).apply();
             toast("Started from beginning");
-        }
-    }
-    void toggle(){''')
+                  }
+              }
+              void toggle(){''')
           s=s.replace('''                long saved=getSharedPreferences("resume",MODE_PRIVATE).getLong(videoUri,0);
                 if(saved>5000&&saved<duration-5000)mp.seekTo((int)saved);''','''                long saved=getSharedPreferences("resume",MODE_PRIVATE).getLong(videoUri,0);
                 if(saved>0&&saved<duration-2500)mp.seekTo((int)saved);''')
