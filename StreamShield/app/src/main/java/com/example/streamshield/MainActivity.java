@@ -17,7 +17,7 @@ import android.os.Environment;
 import android.net.Uri;
 import android.content.Intent;
 public class MainActivity extends Activity {
- WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions;
+ WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false;
  final Handler handler=new Handler(Looper.getMainLooper());
  final Runnable adCheck=new Runnable(){public void run(){if(web!=null){web.evaluateJavascript(AD_SCRIPT,null);handler.postDelayed(this,1500);}}};
  static final String AD_SCRIPT="(function(){try{"+
@@ -71,8 +71,9 @@ public class MainActivity extends Activity {
  void startPip(){
  if(Build.VERSION.SDK_INT<26){Toast.makeText(this,"PiP requires Android 8+",Toast.LENGTH_SHORT).show();return;}
  if(!getPackageManager().hasSystemFeature("android.software.picture_in_picture")){Toast.makeText(this,"PiP unsupported on this phone",Toast.LENGTH_LONG).show();return;}
- web.evaluateJavascript("(function(){var v=document.querySelector('video');return !!v;})()",result->{
- if(!"true".equals(result)){Toast.makeText(this,"Start a video before entering PiP",Toast.LENGTH_LONG).show();return;}
+ web.evaluateJavascript("(function(){var v=document.querySelector('video');return v?(v.paused?'paused':'playing'):'none';})()",result->{
+ if("\"none\"".equals(result)||"null".equals(result)){Toast.makeText(this,"Start a video before entering PiP",Toast.LENGTH_LONG).show();return;}
+ pipWasPlaying="\"playing\"".equals(result);
  try{
  PictureInPictureParams.Builder builder=new PictureInPictureParams.Builder().setAspectRatio(new Rational(16,9));
  boolean ok=enterPictureInPictureMode(builder.build());
@@ -81,8 +82,9 @@ public class MainActivity extends Activity {
  });
  }
  @Override public void onPictureInPictureModeChanged(boolean isInPip,android.content.res.Configuration config){super.onPictureInPictureModeChanged(isInPip,config);controls.setVisibility(isInPip?View.GONE:View.VISIBLE);actions.setVisibility(isInPip?View.GONE:View.VISIBLE);
- if(isInPip && fullscreen!=null){try{web.getWebChromeClient().onHideCustomView();}catch(Exception ignored){}}
+ if(isInPip && pipWasPlaying){handler.postDelayed(()->resumePipVideo(),300);handler.postDelayed(()->resumePipVideo(),1200);}
  }
+ void resumePipVideo(){if(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode() && web!=null){web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}}
  @Override public void onBackPressed(){if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
  @Override protected void onDestroy(){handler.removeCallbacks(adCheck);web.destroy();super.onDestroy();}
 }
