@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
  getWindow().getDecorView().setSystemUiVisibility(0);
  getWindow().setStatusBarColor(Color.BLACK);getWindow().setNavigationBarColor(Color.BLACK);
  root=new FrameLayout(this); LinearLayout layout=new LinearLayout(this);layout.setOrientation(1);
+ root.setOnApplyWindowInsetsListener((v,insets)->{int top,bottom,left,right;if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.statusBars()|android.view.WindowInsets.Type.navigationBars());top=bars.top;bottom=bars.bottom;left=bars.left;right=bars.right;}else{top=insets.getSystemWindowInsetTop();bottom=insets.getSystemWindowInsetBottom();left=insets.getSystemWindowInsetLeft();right=insets.getSystemWindowInsetRight();}v.setPadding(left,top,right,bottom);return insets;});
  controls=new LinearLayout(this);controls.setOrientation(LinearLayout.HORIZONTAL);controls.setBackgroundColor(Color.DKGRAY);
  Button back=new Button(this);back.setText("‹");controls.addView(back,new LinearLayout.LayoutParams(0,-2,1));
  Button home=new Button(this);home.setText("Home");controls.addView(home,new LinearLayout.LayoutParams(0,-2,2));
@@ -80,8 +81,8 @@ public class MainActivity extends Activity {
  web.setBackgroundColor(Color.BLACK);
  browseWeb.loadUrl(HOME);
  miniHolder=new FrameLayout(this);
- FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(dp(220),dp(48),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
- overlay.setMargins(0,0,dp(10),dp(165));contentHost.addView(miniHolder,overlay);
+ FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(dp(220),dp(145),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
+ overlay.setMargins(0,0,dp(10),dp(20));contentHost.addView(miniHolder,overlay);
  Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.RIGHT|android.view.Gravity.TOP);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
  Button play=new Button(this);play.setText("▶");FrameLayout.LayoutParams y=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.LEFT|android.view.Gravity.TOP);miniHolder.addView(play,y);play.setOnClickListener(v->resumeMiniVideo());
  handler.postDelayed(()->resumeMiniVideo(),400);
