@@ -17,7 +17,7 @@ import android.os.Environment;
 import android.net.Uri;
 import android.content.Intent;
 public class MainActivity extends Activity {
- WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false;
+ WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; LinearLayout pageLayout;
  final Handler handler=new Handler(Looper.getMainLooper());
  final Runnable adCheck=new Runnable(){public void run(){if(web!=null){web.evaluateJavascript(AD_SCRIPT,null);handler.postDelayed(this,1500);}}};
  static final String AD_SCRIPT="(function(){try{"+
@@ -41,10 +41,10 @@ public class MainActivity extends Activity {
  Button go=new Button(this);go.setText("Go");controls.addView(go,new LinearLayout.LayoutParams(0,-2,1));
  layout.addView(controls);
  actions=new LinearLayout(this);actions.setOrientation(LinearLayout.HORIZONTAL);actions.setBackgroundColor(Color.rgb(35,35,35));
- Button pip=new Button(this);pip.setText("Picture-in-Picture");actions.addView(pip,new LinearLayout.LayoutParams(0,-2,1));
+ Button pip=new Button(this);pip.setText("Mini Player");actions.addView(pip,new LinearLayout.LayoutParams(0,-2,1));
  Button dl=new Button(this);dl.setText("Download");actions.addView(dl,new LinearLayout.LayoutParams(0,-2,1));
  layout.addView(actions);
- pip.setOnClickListener(v->startPip());
+ pip.setOnClickListener(v->toggleMiniPlayer());
  dl.setOnClickListener(v->{String url=web.getUrl();if(url!=null && (url.contains("youtube.com/watch")||url.contains("youtu.be/")||url.contains("youtube.com/shorts/"))){Toast.makeText(this,"YouTube video downloads are not supported. Direct file downloads are supported.",Toast.LENGTH_LONG).show();}else{Toast.makeText(this,"Long-press a downloadable file link, or use a direct download URL.",Toast.LENGTH_LONG).show();}});
 
  web=new WebView(this);web.setBackgroundColor(Color.BLACK);web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);web.getSettings().setMediaPlaybackRequiresUserGesture(false);
@@ -61,10 +61,35 @@ public class MainActivity extends Activity {
  }catch(Exception ex){Toast.makeText(this,"Download failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();}});
  web.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){v.evaluateJavascript(AD_SCRIPT,null);}@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){String host=r.getUrl().getHost();if(host!=null)for(String blocked:BLOCKED)if(host.equals(blocked)||host.endsWith("."+blocked))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));return null;}});
  web.setWebChromeClient(new WebChromeClient(){@Override public void onShowCustomView(View v,CustomViewCallback c){if(fullscreen!=null){c.onCustomViewHidden();return;}fullscreen=v;callback=c;controls.setVisibility(View.GONE);actions.setVisibility(View.GONE);web.setVisibility(View.GONE);root.addView(v,new FrameLayout.LayoutParams(-1,-1));}@Override public void onHideCustomView(){if(fullscreen==null)return;root.removeView(fullscreen);fullscreen=null;controls.setVisibility(View.VISIBLE);actions.setVisibility(View.VISIBLE);web.setVisibility(View.VISIBLE);if(callback!=null)callback.onCustomViewHidden();callback=null;}});
- layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
- back.setOnClickListener(v->{if(web.canGoBack())web.goBack();});home.setOnClickListener(v->web.loadUrl(HOME));
- go.setOnClickListener(v->{String q=search.getText().toString().trim();if(q.startsWith("https://"))web.loadUrl(q);else web.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
+ pageLayout=layout;layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
+ back.setOnClickListener(v->{WebView w=miniMode?browseWeb:web;if(w!=null&&w.canGoBack())w.goBack();});home.setOnClickListener(v->{(miniMode?browseWeb:web).loadUrl(HOME);});
+ go.setOnClickListener(v->{String q=search.getText().toString().trim();WebView w=miniMode?browseWeb:web;if(q.startsWith("https://"))w.loadUrl(q);else w.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
  web.loadUrl(HOME);handler.postDelayed(adCheck,1500);
+ }
+ int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+0.5f);}
+ void toggleMiniPlayer(){
+ if(miniMode){closeMiniPlayer();return;}
+ web.evaluateJavascript("(function(){return !!document.querySelector('video')})()",value->{
+ if(!"true".equals(value)){Toast.makeText(this,"Play a video first",Toast.LENGTH_SHORT).show();return;}
+ miniMode=true;
+ browseWeb=new WebView(this);browseWeb.getSettings().setJavaScriptEnabled(true);browseWeb.getSettings().setDomStorageEnabled(true);
+ browseWeb.setWebViewClient(new WebViewClient());browseWeb.loadUrl(HOME);
+ pageLayout.removeView(web);pageLayout.addView(browseWeb,new LinearLayout.LayoutParams(-1,0,1));
+ miniHolder=new FrameLayout(this);miniHolder.setBackgroundColor(Color.BLACK);
+ FrameLayout.LayoutParams holderParams=new FrameLayout.LayoutParams(dp(220),dp(155),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
+ holderParams.setMargins(0,0,dp(10),dp(20));root.addView(miniHolder,holderParams);
+ miniHolder.addView(web,new FrameLayout.LayoutParams(-1,-1));
+ web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(!s){s=document.createElement('style');s.id='ss-mini-css';s.textContent='html,body{background:#000!important;overflow:hidden!important}video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;object-fit:contain!important;z-index:2147483647!important;background:black!important}';document.head.appendChild(s);}})()",null);
+ Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.TOP|android.view.Gravity.RIGHT);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
+ Toast.makeText(this,"Mini player active — browse below",Toast.LENGTH_SHORT).show();
+ });
+ }
+ void closeMiniPlayer(){
+ if(!miniMode)return;miniMode=false;
+ web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(s)s.remove();})()",null);
+ if(miniHolder!=null){miniHolder.removeView(web);root.removeView(miniHolder);miniHolder=null;}
+ if(browseWeb!=null){pageLayout.removeView(browseWeb);browseWeb.destroy();browseWeb=null;}
+ pageLayout.addView(web,new LinearLayout.LayoutParams(-1,0,1));
  }
  boolean backgroundEnabled=false;
  void toggleBackground(){backgroundEnabled=!backgroundEnabled;try{Intent i=new Intent(this,BackgroundService.class);if(backgroundEnabled){if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);Toast.makeText(this,"Background mode on. Playback depends on YouTube and Android.",Toast.LENGTH_LONG).show();}else{stopService(i);Toast.makeText(this,"Background mode off",Toast.LENGTH_SHORT).show();}}catch(Exception e){backgroundEnabled=false;Toast.makeText(this,"Background mode unavailable: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
@@ -85,6 +110,6 @@ public class MainActivity extends Activity {
  if(isInPip && pipWasPlaying){handler.postDelayed(()->resumePipVideo(),300);handler.postDelayed(()->resumePipVideo(),1200);}
  }
  void resumePipVideo(){if(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode() && web!=null){web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}}
- @Override public void onBackPressed(){if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
- @Override protected void onDestroy(){handler.removeCallbacks(adCheck);web.destroy();super.onDestroy();}
+ @Override public void onBackPressed(){if(miniMode){closeMiniPlayer();return;}if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
+ @Override protected void onDestroy(){handler.removeCallbacks(adCheck);if(browseWeb!=null)browseWeb.destroy();web.destroy();super.onDestroy();}
 }
