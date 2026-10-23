@@ -190,6 +190,16 @@ public class MainActivity extends Activity {
         if (!enabled) pipRequested = false;
     }
 
+    @Override protected void onPause() {
+        super.onPause();
+        // Keep WebView running while the activity is displayed in PiP.
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (web != null) web.onResume();
+    }
+
     @Override protected void onSaveInstanceState(Bundle out) {
         web.saveState(out);
         super.onSaveInstanceState(out);
