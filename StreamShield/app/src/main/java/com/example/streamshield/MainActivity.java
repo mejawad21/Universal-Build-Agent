@@ -17,7 +17,7 @@ import android.os.Environment;
 import android.net.Uri;
 import android.content.Intent;
 public class MainActivity extends Activity {
- WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; FrameLayout contentHost; LinearLayout pageLayout;
+ WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; FrameLayout contentHost; LinearLayout pageLayout; final Runnable miniPlaybackWatch=new Runnable(){public void run(){if(miniMode){resumeMiniVideo();handler.postDelayed(this,1800);}}};
  final Handler handler=new Handler(Looper.getMainLooper());
  final Runnable adCheck=new Runnable(){public void run(){if(web!=null){web.evaluateJavascript(AD_SCRIPT,null);handler.postDelayed(this,1500);}}};
  static final String AD_SCRIPT="(function(){try{"+
@@ -84,15 +84,17 @@ public class MainActivity extends Activity {
  miniHolder=new FrameLayout(this);
  FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(dp(220),dp(145),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
  overlay.setMargins(0,0,dp(10),dp(20));contentHost.addView(miniHolder,overlay);
+ miniHolder.setOnTouchListener(new View.OnTouchListener(){float downX,downY;public boolean onTouch(View v,android.view.MotionEvent e){if(e.getAction()==android.view.MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();return true;}if(e.getAction()==android.view.MotionEvent.ACTION_MOVE){float dx=e.getX()-downX;if(dx<0)v.setTranslationX(dx);return true;}if(e.getAction()==android.view.MotionEvent.ACTION_UP){float dx=e.getX()-downX;if(dx<-dp(65)){dismissMiniPlayer();}else{v.animate().translationX(0).setDuration(140).start();}return true;}return true;}});
  Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.RIGHT|android.view.Gravity.TOP);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
  Button play=new Button(this);play.setText("▶");FrameLayout.LayoutParams y=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.LEFT|android.view.Gravity.TOP);miniHolder.addView(play,y);play.setOnClickListener(v->resumeMiniVideo());
- handler.postDelayed(()->resumeMiniVideo(),400);
+ handler.postDelayed(()->resumeMiniVideo(),400);handler.postDelayed(miniPlaybackWatch,1800);
  Toast.makeText(this,"Mini player active",Toast.LENGTH_SHORT).show();
  });
  }
  void resumeMiniVideo(){if(miniMode&&web!=null)web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}
+ void dismissMiniPlayer(){if(!miniMode)return;web.evaluateJavascript("(function(){var v=document.querySelector(\'video\');if(v)v.pause();})()",null);miniMode=false;handler.removeCallbacks(miniPlaybackWatch);if(miniHolder!=null){contentHost.removeView(miniHolder);miniHolder=null;}if(web!=null){contentHost.removeView(web);web.destroy();web=null;}if(browseWeb!=null){web=browseWeb;browseWeb=null;web.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));}Toast.makeText(this,"Mini player closed",Toast.LENGTH_SHORT).show();}
  void closeMiniPlayer(){
- if(!miniMode)return;miniMode=false;
+ if(!miniMode)return;miniMode=false;handler.removeCallbacks(miniPlaybackWatch);
  web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-video-style');if(s)s.remove();})()",null);
  if(miniHolder!=null){contentHost.removeView(miniHolder);miniHolder=null;}
  if(browseWeb!=null){contentHost.removeView(browseWeb);browseWeb.destroy();browseWeb=null;}
@@ -118,5 +120,5 @@ public class MainActivity extends Activity {
  }
  void resumePipVideo(){if(Build.VERSION.SDK_INT>=26 && isInPictureInPictureMode() && web!=null){web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}}
  @Override public void onBackPressed(){if(miniMode){closeMiniPlayer();return;}if(fullscreen!=null){web.getWebChromeClient().onHideCustomView();return;}if(web.canGoBack())web.goBack();else super.onBackPressed();}
- @Override protected void onDestroy(){handler.removeCallbacks(adCheck);if(browseWeb!=null)browseWeb.destroy();web.destroy();super.onDestroy();}
+ @Override protected void onDestroy(){handler.removeCallbacks(adCheck);handler.removeCallbacks(miniPlaybackWatch);if(browseWeb!=null)browseWeb.destroy();web.destroy();super.onDestroy();}
 }
