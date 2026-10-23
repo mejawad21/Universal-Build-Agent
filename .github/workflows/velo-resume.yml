@@ -92,7 +92,7 @@ jobs:
                 });
             }''')
           ms=ms.replace('subline=clock(v.duration)+"  ·  "+v.folder+"  ·  "+v.size/1048576+" MB";', 'subline=clock(v.duration)+"  ·  "+v.folder+"  ·  "+String.format(Locale.US,"%.1f MB",v.size/1048576.0);')
-          ms=ms.replace(chr(92)+'n', chr(10))
+          ms=ms.replace(chr(92)+chr(92)+'n', chr(10))
           main.write_text(ms)
           manifest=Path('/tmp/velo/app/src/main/AndroidManifest.xml')
           xml=manifest.read_text().replace('android:allowBackup="false"','android:allowBackup="false"')
