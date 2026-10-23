@@ -43,9 +43,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="streamshield-v2.7"
+          TAG="streamshield-v2.8"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" StreamShield.apk --clobber
           else
-            gh release create "$TAG" StreamShield.apk --title "StreamShield 2.7 APK" --notes "Remove in-app mini-player, Home, and Download buttons; add swipe-down Android Picture-in-Picture gesture." --target "$GITHUB_SHA"
+            gh release create "$TAG" StreamShield.apk --title "StreamShield 2.8 APK" --notes "PiP playback lifecycle adjustments and repeated resume checks while preserving swipe-down gesture." --target "$GITHUB_SHA"
           fi
