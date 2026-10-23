@@ -17,7 +17,7 @@ import android.os.Environment;
 import android.net.Uri;
 import android.content.Intent;
 public class MainActivity extends Activity {
- WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; LinearLayout pageLayout;
+ WebView web; View fullscreen; WebChromeClient.CustomViewCallback callback; FrameLayout root; LinearLayout controls; LinearLayout actions; boolean pipWasPlaying=false; boolean miniMode=false; WebView browseWeb; FrameLayout miniHolder; FrameLayout contentHost; LinearLayout pageLayout;
  final Handler handler=new Handler(Looper.getMainLooper());
  final Runnable adCheck=new Runnable(){public void run(){if(web!=null){web.evaluateJavascript(AD_SCRIPT,null);handler.postDelayed(this,1500);}}};
  static final String AD_SCRIPT="(function(){try{"+
@@ -61,7 +61,7 @@ public class MainActivity extends Activity {
  }catch(Exception ex){Toast.makeText(this,"Download failed: "+ex.getMessage(),Toast.LENGTH_LONG).show();}});
  web.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String url){v.evaluateJavascript(AD_SCRIPT,null);}@Override public WebResourceResponse shouldInterceptRequest(WebView v,WebResourceRequest r){String host=r.getUrl().getHost();if(host!=null)for(String blocked:BLOCKED)if(host.equals(blocked)||host.endsWith("."+blocked))return new WebResourceResponse("text/plain","UTF-8",new ByteArrayInputStream(new byte[0]));return null;}});
  web.setWebChromeClient(new WebChromeClient(){@Override public void onShowCustomView(View v,CustomViewCallback c){if(fullscreen!=null){c.onCustomViewHidden();return;}fullscreen=v;callback=c;controls.setVisibility(View.GONE);actions.setVisibility(View.GONE);web.setVisibility(View.GONE);root.addView(v,new FrameLayout.LayoutParams(-1,-1));}@Override public void onHideCustomView(){if(fullscreen==null)return;root.removeView(fullscreen);fullscreen=null;controls.setVisibility(View.VISIBLE);actions.setVisibility(View.VISIBLE);web.setVisibility(View.VISIBLE);if(callback!=null)callback.onCustomViewHidden();callback=null;}});
- pageLayout=layout;layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
+ pageLayout=layout;contentHost=new FrameLayout(this);contentHost.addView(web,new FrameLayout.LayoutParams(-1,-1));layout.addView(contentHost,new LinearLayout.LayoutParams(-1,0,1));root.addView(layout);setContentView(root);
  back.setOnClickListener(v->{WebView w=miniMode?browseWeb:web;if(w!=null&&w.canGoBack())w.goBack();});home.setOnClickListener(v->{(miniMode?browseWeb:web).loadUrl(HOME);});
  go.setOnClickListener(v->{String q=search.getText().toString().trim();WebView w=miniMode?browseWeb:web;if(q.startsWith("https://"))w.loadUrl(q);else w.loadUrl("https://m.youtube.com/results?search_query="+android.net.Uri.encode(q));});
  web.loadUrl(HOME);handler.postDelayed(adCheck,1500);
@@ -73,26 +73,27 @@ public class MainActivity extends Activity {
  if(!"true".equals(value)){Toast.makeText(this,"Play a video first",Toast.LENGTH_SHORT).show();return;}
  miniMode=true;
  browseWeb=new WebView(this);browseWeb.getSettings().setJavaScriptEnabled(true);browseWeb.getSettings().setDomStorageEnabled(true);
- browseWeb.setWebViewClient(new WebViewClient());browseWeb.loadUrl(HOME);
- pageLayout.removeView(web);pageLayout.addView(browseWeb,new LinearLayout.LayoutParams(-1,0,1));
- miniHolder=new FrameLayout(this);miniHolder.setBackgroundColor(Color.BLACK);
- FrameLayout.LayoutParams holderParams=new FrameLayout.LayoutParams(dp(220),dp(220),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
- holderParams.setMargins(0,0,dp(10),dp(20));root.addView(miniHolder,holderParams);
- miniHolder.addView(web,new FrameLayout.LayoutParams(-1,-1));
- handler.postDelayed(()->resumeMiniVideo(),350);handler.postDelayed(()->resumeMiniVideo(),1100);
- web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(!s){s=document.createElement('style');s.id='ss-mini-css';s.textContent='html,body{background:#000!important;overflow:hidden!important}video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;object-fit:contain!important;z-index:2147483647!important;background:black!important}';document.head.appendChild(s);}})()",null);
- Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.TOP|android.view.Gravity.RIGHT);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
- Button play=new Button(this);play.setText("▶");FrameLayout.LayoutParams y=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.TOP|android.view.Gravity.LEFT);miniHolder.addView(play,y);play.setOnClickListener(v->resumeMiniVideo());
- Toast.makeText(this,"Mini player active — browse below",Toast.LENGTH_SHORT).show();
+ browseWeb.setWebViewClient(new WebViewClient());
+ contentHost.addView(browseWeb,0,new FrameLayout.LayoutParams(-1,-1));
+ FrameLayout.LayoutParams small=new FrameLayout.LayoutParams(dp(220),dp(145),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
+ small.setMargins(0,0,dp(10),dp(20));web.setLayoutParams(small);web.bringToFront();
+ web.setBackgroundColor(Color.BLACK);
+ browseWeb.loadUrl(HOME);
+ miniHolder=new FrameLayout(this);
+ FrameLayout.LayoutParams overlay=new FrameLayout.LayoutParams(dp(220),dp(48),android.view.Gravity.BOTTOM|android.view.Gravity.RIGHT);
+ overlay.setMargins(0,0,dp(10),dp(165));contentHost.addView(miniHolder,overlay);
+ Button expand=new Button(this);expand.setText("↗");FrameLayout.LayoutParams x=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.RIGHT|android.view.Gravity.TOP);miniHolder.addView(expand,x);expand.setOnClickListener(v->closeMiniPlayer());
+ Button play=new Button(this);play.setText("▶");FrameLayout.LayoutParams y=new FrameLayout.LayoutParams(dp(55),dp(48),android.view.Gravity.LEFT|android.view.Gravity.TOP);miniHolder.addView(play,y);play.setOnClickListener(v->resumeMiniVideo());
+ handler.postDelayed(()->resumeMiniVideo(),400);
+ Toast.makeText(this,"Mini player active",Toast.LENGTH_SHORT).show();
  });
  }
- void resumeMiniVideo(){if(miniMode&&web!=null)web.evaluateJavascript("(function(){var v=document.querySelector(\'video\');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}
+ void resumeMiniVideo(){if(miniMode&&web!=null)web.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){});}})()",null);}
  void closeMiniPlayer(){
  if(!miniMode)return;miniMode=false;
- web.evaluateJavascript("(function(){var s=document.getElementById('ss-mini-css');if(s)s.remove();})()",null);
- if(miniHolder!=null){miniHolder.removeView(web);root.removeView(miniHolder);miniHolder=null;}
- if(browseWeb!=null){pageLayout.removeView(browseWeb);browseWeb.destroy();browseWeb=null;}
- pageLayout.addView(web,new LinearLayout.LayoutParams(-1,0,1));
+ if(miniHolder!=null){contentHost.removeView(miniHolder);miniHolder=null;}
+ if(browseWeb!=null){contentHost.removeView(browseWeb);browseWeb.destroy();browseWeb=null;}
+ web.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));
  }
  boolean backgroundEnabled=false;
  void toggleBackground(){backgroundEnabled=!backgroundEnabled;try{Intent i=new Intent(this,BackgroundService.class);if(backgroundEnabled){if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);Toast.makeText(this,"Background mode on. Playback depends on YouTube and Android.",Toast.LENGTH_LONG).show();}else{stopService(i);Toast.makeText(this,"Background mode off",Toast.LENGTH_SHORT).show();}}catch(Exception e){backgroundEnabled=false;Toast.makeText(this,"Background mode unavailable: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
