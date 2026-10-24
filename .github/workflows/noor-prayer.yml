@@ -1,0 +1,89 @@
+name: Noor Prayer APK
+on:
+  push:
+    paths:
+      - '.github/workflows/noor-prayer.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Generate Android app
+        run: |
+          mkdir -p app/src/main/java/com/noor/prayer app/src/main/res/{layout,drawable,xml,values}
+          cat > settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name='NoorPrayer'
+          include ':app'
+          EOF
+          echo "plugins { id 'com.android.application' version '8.7.3' apply false }" > build.gradle
+          cat > app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android { namespace 'com.noor.prayer'; compileSdk 35
+            defaultConfig { applicationId 'com.noor.prayer'; minSdk 26; targetSdk 32; versionCode 1; versionName '1.0' }
+          }
+          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+            <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+            <application android:label="Noor Prayer" android:theme="@android:style/Theme.Material.NoActionBar">
+              <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+              <receiver android:name=".PrayerWidget" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info"/></receiver>
+              <receiver android:name=".TickReceiver" android:exported="false"/>
+              <receiver android:name=".BootReceiver" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter></receiver>
+            </application>
+          </manifest>
+          EOF
+          cat > app/src/main/res/xml/widget_info.xml <<'EOF'
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:minWidth="250dp" android:minHeight="110dp" android:initialLayout="@layout/widget" android:updatePeriodMillis="1800000" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"/>
+          EOF
+          cat > app/src/main/res/drawable/bg.xml <<'EOF'
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#064A39"/><corners android:radius="22dp"/><stroke android:width="2dp" android:color="#D9B66F"/></shape>
+          EOF
+          cat > app/src/main/res/layout/widget.xml <<'EOF'
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/bg">
+            <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="☪ NOOR PRAYER  •  DUBAI" android:textColor="#EFD38C" android:textSize="15sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/next" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="23sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/countdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#EFD38C" android:textSize="14sp"/>
+            <TextView android:id="@+id/all" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp"/>
+          </LinearLayout>
+          EOF
+          cat > app/src/main/java/com/noor/prayer/MainActivity.java <<'EOF'
+          package com.noor.prayer;
+          import android.app.*; import android.appwidget.*; import android.content.*; import android.os.*; import android.graphics.Color; import android.widget.*; import java.time.*; import java.time.format.*; import java.util.*;
+          public class MainActivity extends Activity {
+            public void onCreate(Bundle b){super.onCreate(b); LinearLayout l=new LinearLayout(this); l.setOrientation(1); l.setPadding(38,55,38,20);l.setBackgroundColor(Color.rgb(6,74,57)); TextView t=new TextView(this);t.setText("☪ NOOR PRAYER\n\nDUBAI · UAE\n\n"+PrayerWidget.description()+"\n\nLong press your home screen → Widgets → Noor Prayer.\n\nTimes are astronomical estimates; verify with official UAE prayer times.");t.setTextColor(-1);t.setTextSize(21);l.addView(t);setContentView(l);PrayerWidget.refresh(this);PrayerWidget.schedule(this);}
+          }
+          class PrayerWidget extends AppWidgetProvider {
+            static final String[] N={"Fajr","Dhuhr","Asr","Maghrib","Isha"};
+            static final ZoneId Z=ZoneId.of("Asia/Dubai");
+            static double rad(double d){return Math.toRadians(d);}
+            static double ha(double lat,double dec,double alt){double c=(Math.sin(rad(alt))-Math.sin(rad(lat))*Math.sin(rad(dec)))/(Math.cos(rad(lat))*Math.cos(rad(dec)));return Math.toDegrees(Math.acos(Math.max(-1,Math.min(1,c))))*4;}
+            static ZonedDateTime[] times(LocalDate date){double n=date.getDayOfYear(),g=2*Math.PI/365*(n-1);double eq=229.18*(.000075+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g));double dec=Math.toDegrees(.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)+.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g));double noon=720-4*55.2708-eq+240,lat=25.2048;double asr=Math.toDegrees(Math.atan(1/(1+Math.tan(rad(Math.abs(lat-dec))))));double[] m={noon-ha(lat,dec,-18.2),noon+1,noon+ha(lat,dec,asr),noon+ha(lat,dec,-.833),noon+ha(lat,dec,-18)};ZonedDateTime[] out=new ZonedDateTime[5];for(int i=0;i<5;i++)out[i]=date.atStartOfDay(Z).plusMinutes(Math.round(m[i]));return out;}
+            static String fmt(ZonedDateTime t){return t.format(DateTimeFormatter.ofPattern("h:mm a"));}
+            static String description(){ZonedDateTime[] a=times(LocalDate.now(Z));StringBuilder s=new StringBuilder();for(int i=0;i<5;i++)s.append(N[i]).append("    ").append(fmt(a[i])).append("\n");return s.toString();}
+            static void refresh(Context c){AppWidgetManager mgr=AppWidgetManager.getInstance(c);int[] ids=mgr.getAppWidgetIds(new ComponentName(c,PrayerWidget.class));ZonedDateTime now=ZonedDateTime.now(Z);ZonedDateTime[] a=times(now.toLocalDate());int ix=0;while(ix<5&&!a[ix].isAfter(now))ix++;ZonedDateTime next=ix==5?times(now.toLocalDate().plusDays(1))[0]:a[ix];String name=N[ix%5];long mins=Math.max(0,Duration.between(now,next).toMinutes());for(int id:ids){RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);v.setTextViewText(R.id.next,name+"  "+fmt(next));v.setTextViewText(R.id.countdown,"Next prayer in "+(mins/60)+"h "+(mins%60)+"m");v.setTextViewText(R.id.all,description());v.setOnClickPendingIntent(R.id.title,PendingIntent.getActivity(c,0,new Intent(c,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT));mgr.updateAppWidget(id,v);}}
+            static void schedule(Context c){AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);long next=((System.currentTimeMillis()/60000)+1)*60000;PendingIntent p=PendingIntent.getBroadcast(c,10,new Intent(c,TickReceiver.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);a.set(AlarmManager.RTC,next,p);}
+            public void onUpdate(Context c,AppWidgetManager m,int[] ids){refresh(c);schedule(c);}
+            public void onEnabled(Context c){schedule(c);}
+          }
+          class TickReceiver extends BroadcastReceiver {public void onReceive(Context c,Intent i){PrayerWidget.refresh(c);PrayerWidget.schedule(c);}}
+          class BootReceiver extends BroadcastReceiver {public void onReceive(Context c,Intent i){PrayerWidget.refresh(c);PrayerWidget.schedule(c);}}
+          EOF
+      - name: Install Gradle
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          unzip -q gradle-8.10.2-bin.zip
+      - name: Build APK
+        run: ./gradle-8.10.2/bin/gradle assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NoorPrayer-APK
+          path: app/build/outputs/apk/debug/*.apk
