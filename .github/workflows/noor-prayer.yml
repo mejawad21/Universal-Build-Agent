@@ -4,6 +4,8 @@ on:
     paths:
       - '.github/workflows/noor-prayer.yml'
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -87,6 +89,20 @@ jobs:
           unzip -q gradle-8.10.2-bin.zip
       - name: Build APK
         run: ./gradle-8.10.2/bin/gradle assembleDebug --no-daemon --stacktrace
+      - name: Prepare direct-download APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk release/NoorPrayer.apk
+      - name: Publish APK to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view noor-prayer-latest >/dev/null 2>&1; then
+            gh release upload noor-prayer-latest release/NoorPrayer.apk --clobber
+          else
+            gh release create noor-prayer-latest release/NoorPrayer.apk --title "Noor Prayer Widget APK" --notes "Android home-screen prayer widget for Dubai. Debug APK; prayer times are estimates."
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: NoorPrayer-APK
