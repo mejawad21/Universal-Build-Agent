@@ -1,0 +1,37 @@
+name: APK Failure Diagnostic Agent
+on:
+  workflow_run:
+    workflows: ["Noor Prayer APK"]
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+  issues: write
+jobs:
+  diagnose:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect failed job diagnostics and create/update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,json,subprocess,urllib.request,urllib.error
+          repo=os.environ['REPO']; run=os.environ['RUN_ID']; token=os.environ['GH_TOKEN']
+          def api(path,method='GET',payload=None):
+              req=urllib.request.Request('https://api.github.com'+path,data=json.dumps(payload).encode() if payload else None,method=method,headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+              with urllib.request.urlopen(req) as f:return json.load(f)
+          jobs=api(f'/repos/{repo}/actions/runs/{run}/jobs?per_page=100').get('jobs',[])
+          failures=[]
+          for job in jobs:
+              for step in job.get('steps',[]):
+                  if step.get('conclusion')=='failure':failures.append(f"- {job['name']} / {step['name']}")
+          title='APK build failure: '+run
+          body='## Automated failure report\n\nRun: '+os.environ['RUN_URL']+'\n\nFailed steps:\n'+('\n'.join(failures) or '- See run logs')+'\n\n**Action needed:** inspect the linked job logs and repair the project. This diagnostic workflow does not claim to be an AI code-repair agent.'
+          api(f'/repos/{repo}/issues','POST',{'title':title,'body':body,'labels':[]})
+          PY
