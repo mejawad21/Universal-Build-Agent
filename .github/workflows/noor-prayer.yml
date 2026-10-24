@@ -34,7 +34,7 @@ jobs:
           cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
           android { namespace 'com.noor.prayer'; compileSdk 35
-            defaultConfig { applicationId 'com.noor.prayer'; minSdk 26; targetSdk 32; versionCode 1; versionName '1.0' }
+            defaultConfig { applicationId 'com.noor.prayer'; minSdk 26; targetSdk 32; versionCode 2; versionName '1.1' }
           }
           EOF
           cat > app/src/main/AndroidManifest.xml <<'EOF'
@@ -50,17 +50,17 @@ jobs:
           </manifest>
           EOF
           cat > app/src/main/res/xml/widget_info.xml <<'EOF'
-          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:minWidth="250dp" android:minHeight="110dp" android:initialLayout="@layout/widget" android:updatePeriodMillis="1800000" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"/>
+          <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:minWidth="250dp" android:minHeight="190dp" android:initialLayout="@layout/widget" android:updatePeriodMillis="1800000" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"/>
           EOF
           cat > app/src/main/res/drawable/bg.xml <<'EOF'
           <shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#064A39"/><corners android:radius="22dp"/><stroke android:width="2dp" android:color="#D9B66F"/></shape>
           EOF
           cat > app/src/main/res/layout/widget.xml <<'EOF'
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/bg">
-            <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="☪ NOOR PRAYER  •  DUBAI" android:textColor="#EFD38C" android:textSize="15sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="☪ NOOR PRAYER   ·   DUBAI" android:textColor="#EFD38C" android:textSize="15sp" android:textStyle="bold"/>
             <TextView android:id="@+id/next" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="23sp" android:textStyle="bold"/>
             <TextView android:id="@+id/countdown" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#EFD38C" android:textSize="14sp"/>
-            <TextView android:id="@+id/all" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp"/>
+            <TextView android:id="@+id/all" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="15sp" android:lineSpacingExtra="4dp"/>
           </LinearLayout>
           EOF
           cat > app/src/main/java/com/noor/prayer/MainActivity.java <<'EOF'
@@ -76,7 +76,7 @@ jobs:
             static double ha(double lat,double dec,double alt){double c=(Math.sin(rad(alt))-Math.sin(rad(lat))*Math.sin(rad(dec)))/(Math.cos(rad(lat))*Math.cos(rad(dec)));return Math.toDegrees(Math.acos(Math.max(-1,Math.min(1,c))))*4;}
             static ZonedDateTime[] times(LocalDate date){double n=date.getDayOfYear(),g=2*Math.PI/365*(n-1);double eq=229.18*(.000075+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g));double dec=Math.toDegrees(.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)+.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g));double noon=720-4*55.2708-eq+240,lat=25.2048;double asr=Math.toDegrees(Math.atan(1/(1+Math.tan(rad(Math.abs(lat-dec))))));double[] m={noon-ha(lat,dec,-18.2),noon+1,noon+ha(lat,dec,asr),noon+ha(lat,dec,-.833),noon+ha(lat,dec,-18)};ZonedDateTime[] out=new ZonedDateTime[5];for(int i=0;i<5;i++)out[i]=date.atStartOfDay(Z).plusMinutes(Math.round(m[i]));return out;}
             static String fmt(ZonedDateTime t){return t.format(DateTimeFormatter.ofPattern("h:mm a"));}
-            static String description(){ZonedDateTime[] a=times(LocalDate.now(Z));StringBuilder s=new StringBuilder();for(int i=0;i<5;i++)s.append(N[i]).append("    ").append(fmt(a[i])).append("\n");return s.toString();}
+            static String description(){ZonedDateTime[] a=times(LocalDate.now(Z));StringBuilder s=new StringBuilder();for(int i=0;i<5;i++)s.append(N[i]).append("      ").append(fmt(a[i])).append("\n");return s.toString();}
             static void refresh(Context c){AppWidgetManager mgr=AppWidgetManager.getInstance(c);int[] ids=mgr.getAppWidgetIds(new ComponentName(c,PrayerWidget.class));ZonedDateTime now=ZonedDateTime.now(Z);ZonedDateTime[] a=times(now.toLocalDate());int ix=0;while(ix<5&&!a[ix].isAfter(now))ix++;ZonedDateTime next=ix==5?times(now.toLocalDate().plusDays(1))[0]:a[ix];String name=N[ix%5];long mins=Math.max(0,Duration.between(now,next).toMinutes());for(int id:ids){RemoteViews v=new RemoteViews(c.getPackageName(),R.layout.widget);v.setTextViewText(R.id.next,name+"  "+fmt(next));v.setTextViewText(R.id.countdown,"Next prayer in "+(mins/60)+"h "+(mins%60)+"m");v.setTextViewText(R.id.all,description());v.setOnClickPendingIntent(R.id.title,PendingIntent.getActivity(c,0,new Intent(c,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT));mgr.updateAppWidget(id,v);}}
             static void schedule(Context c){AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);long next=((System.currentTimeMillis()/60000)+1)*60000;PendingIntent p=PendingIntent.getBroadcast(c,10,new Intent(c,TickReceiver.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);a.set(AlarmManager.RTC,next,p);}
             public void onUpdate(Context c,AppWidgetManager m,int[] ids){refresh(c);schedule(c);}
