@@ -1,0 +1,63 @@
+name: StreamShield APK Analysis
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '**/*.apk'
+      - '.github/workflows/streamshield-analysis.yml'
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Install JADX and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,urllib.request,zipfile,io,os
+          h={"User-Agent":"StreamShield-analysis"}
+          d=json.load(urllib.request.urlopen(urllib.request.Request("https://api.github.com/repos/skylot/jadx/releases/latest",headers=h)))
+          a=next(x for x in d["assets"] if x["name"].startswith("jadx-") and x["name"].endswith(".zip") and "gui" not in x["name"])
+          os.makedirs("/tmp/jadx",exist_ok=True)
+          with urllib.request.urlopen(urllib.request.Request(a["browser_download_url"],headers=h)) as r:
+            with zipfile.ZipFile(io.BytesIO(r.read())) as z:z.extractall("/tmp/jadx")
+          PY
+          chmod +x /tmp/jadx/bin/jadx
+          curl -fsSL https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -o /tmp/apktool
+          chmod +x /tmp/apktool
+          curl -fsSL https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.12.1.jar -o /tmp/apktool.jar
+      - name: Locate APK and inspect playback code
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p analysis
+          APK=$(find . -type f -iname '*.apk' -not -path './.git/*' -print -quit)
+          if [ -z "$APK" ]; then
+            echo 'No APK found in repository. Upload StreamShield APK to the repository and rerun.' | tee analysis/README.txt
+            exit 1
+          fi
+          echo "Analyzed APK: $APK" > analysis/README.txt
+          sha256sum "$APK" >> analysis/README.txt
+          /tmp/jadx/bin/jadx --show-bad-code -d analysis/jadx "$APK"
+          java -jar /tmp/apktool.jar d -f -o analysis/apktool "$APK"
+          {
+            echo 'StreamShield PiP / Mini-player code matches'
+            echo '======================================'
+            grep -RInE 'enterPictureInPictureMode|onPictureInPictureModeChanged|setAutoEnterEnabled|onPause\\(|onStop\\(|onUserLeaveHint|miniHolder|toggleMiniPlayer|resumeMiniVideo|resumePipVideo|evaluateJavascript|pause\\(' analysis/jadx/sources 2>/dev/null | head -300 || true
+          } > analysis/playback-findings.txt
+          find analysis/apktool -name 'AndroidManifest.xml' -exec cp {} analysis/decoded-AndroidManifest.xml \;
+          find analysis/jadx/sources -type f -name '*MainActivity*' -print > analysis/main-activity-paths.txt
+          echo 'Inspect playback-findings.txt and JADX sources for transition causes.' >> analysis/README.txt
+      - name: Upload analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamShield-Analysis
+          path: analysis/
+          if-no-files-found: warn
