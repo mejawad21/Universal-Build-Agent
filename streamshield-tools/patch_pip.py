@@ -63,6 +63,36 @@ s=s[:s.rfind(".method protected onUserLeaveHint()V")]+"""
     return-void
 .end method
 """
+# Keep the original playback view visible and make video occupy PiP bounds.
+# The PiP transition otherwise shrinks the full mobile webpage rather than its video.
+pip_callback='.method public onPictureInPictureModeChanged(ZLandroid/content/res/Configuration;)V'
+assert s.count(pip_callback)==1
+pip_start=s.index(pip_callback)
+pip_end=s.index('.end method',pip_start)
+section=s[pip_start:pip_end]
+callback_anchor='    invoke-super {p0, p1, p2}, Landroid/app/Activity;->onPictureInPictureModeChanged(ZLandroid/content/res/Configuration;)V'
+assert section.count(callback_anchor)==1
+section=section.replace(callback_anchor,callback_anchor+"""
+    # Preserve fullscreen custom view if Chromium created one; otherwise
+    # crop the HTML video to fill the PiP activity surface.
+    iget-object v0, p0, Lcom/example/streamshield/MainActivity;->web:Landroid/webkit/WebView;
+    if-eqz v0, :ss_pip_layout_done
+    if-eqz p1, :ss_pip_layout_restore
+    const-string v1, "(function(){if(document.getElementById('ss-pip-style'))return;var v=document.querySelector('video');if(!v)return;var s=document.createElement('style');s.id='ss-pip-style';s.textContent='html,body{margin:0!important;overflow:hidden!important;background:#000!important}video{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;object-fit:contain!important;z-index:2147483647!important;visibility:visible!important}';document.head.appendChild(s)})()"
+    goto :ss_pip_js
+    :ss_pip_layout_restore
+    const-string v1, "(function(){var s=document.getElementById('ss-pip-style');if(s)s.remove()})()"
+    :ss_pip_js
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
+    :ss_pip_layout_done
+""",1)
+s=s[:pip_start]+section+s[pip_end:]
+# Ensure original PiP callback resumes video only when previously playing.
+pip_enter='    invoke-virtual {p0, v0}, Lcom/example/streamshield/MainActivity;->enterPictureInPictureMode(Landroid/app/PictureInPictureParams;)Z'
+assert s.count(pip_enter)==1
+s=s.replace(pip_enter,"    const/4 v1, 0x1\n    iput-boolean v1, p0, Lcom/example/streamshield/MainActivity;->pipWasPlaying:Z\n"+pip_enter,1)
+print("Updated PiP lifecycle and HTML video layout")
 # Re-arm the swipe gesture on the browsing WebView created by mini mode.
 # This WebView remains visible after the mini-player is closed.
 browse_anchor='    iput-object v0, p0, Lcom/example/streamshield/MainActivity;->browseWeb:Landroid/webkit/WebView;'
