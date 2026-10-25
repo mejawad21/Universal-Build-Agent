@@ -1,0 +1,37 @@
+name: StreamShield Original APK PiP Diagnostic Build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Find original APK and install Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find . -type f -iname 'StreamShield*.apk' -not -path './.git/*' -print -quit)
+          test -n "$APK" || { echo "Upload original StreamShield APK first"; exit 1; }
+          echo "SOURCE_APK=$APK" >> "$GITHUB_ENV"
+          curl -fL --retry 3 https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.12.1.jar -o apktool.jar
+          java -jar apktool.jar d -f "$APK" -o decoded
+      - name: Patch and rebuild original app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 streamshield-tools/patch_pip.py
+          java -jar apktool.jar b decoded -o unsigned.apk
+          zipalign -f -p 4 unsigned.apk aligned.apk
+          keytool -genkeypair -v -keystore debug.keystore -alias streamshield -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=StreamShield Test"
+          apksigner sign --ks debug.keystore --ks-key-alias streamshield --ks-pass pass:android --key-pass pass:android --out StreamShield-PiP-Diagnostic.apk aligned.apk
+          apksigner verify --verbose StreamShield-PiP-Diagnostic.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreamShield-PiP-Diagnostic-APK
+          path: StreamShield-PiP-Diagnostic.apk
