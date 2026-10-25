@@ -52,6 +52,13 @@ s=s[:s.rfind(".method protected onUserLeaveHint()V")]+"""
     invoke-virtual {v0}, Landroid/app/PictureInPictureParams$Builder;->build()Landroid/app/PictureInPictureParams;
     move-result-object v0
     invoke-virtual {p0, v0}, Lcom/example/streamshield/MainActivity;->enterPictureInPictureMode(Landroid/app/PictureInPictureParams;)Z
+    move-result v0
+    if-eqz v0, :done
+    iget-object v0, p0, Lcom/example/streamshield/MainActivity;->web:Landroid/webkit/WebView;
+    if-eqz v0, :done
+    const-string v1, "(function(){var v=document.querySelector('video');if(v&&v.paused){v.play().catch(function(e){console.log('PiP resume:',e)})}})()"
+    const/4 v2, 0x0
+    invoke-virtual {v0, v1, v2}, Landroid/webkit/WebView;->evaluateJavascript(Ljava/lang/String;Landroid/webkit/ValueCallback;)V
     :done
     return-void
 .end method
