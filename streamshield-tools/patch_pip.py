@@ -38,11 +38,20 @@ s+="""
 # Correct onUserLeaveHint: do not clobber p0 object register.
 s=s[:s.rfind(".method protected onUserLeaveHint()V")]+"""
 .method protected onUserLeaveHint()V
-    .locals 1
+    .locals 4
     invoke-super {p0}, Landroid/app/Activity;->onUserLeaveHint()V
     iget-boolean v0, p0, Lcom/example/streamshield/MainActivity;->miniMode:Z
     if-nez v0, :done
-    invoke-virtual {p0}, Lcom/example/streamshield/MainActivity;->startPip()V
+    new-instance v0, Landroid/app/PictureInPictureParams$Builder;
+    invoke-direct {v0}, Landroid/app/PictureInPictureParams$Builder;-><init>()V
+    new-instance v1, Landroid/util/Rational;
+    const/16 v2, 0x10
+    const/16 v3, 0x9
+    invoke-direct {v1, v2, v3}, Landroid/util/Rational;-><init>(II)V
+    invoke-virtual {v0, v1}, Landroid/app/PictureInPictureParams$Builder;->setAspectRatio(Landroid/util/Rational;)Landroid/app/PictureInPictureParams$Builder;
+    invoke-virtual {v0}, Landroid/app/PictureInPictureParams$Builder;->build()Landroid/app/PictureInPictureParams;
+    move-result-object v0
+    invoke-virtual {p0, v0}, Lcom/example/streamshield/MainActivity;->enterPictureInPictureMode(Landroid/app/PictureInPictureParams;)Z
     :done
     return-void
 .end method
