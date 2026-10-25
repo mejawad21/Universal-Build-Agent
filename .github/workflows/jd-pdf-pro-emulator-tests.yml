@@ -67,8 +67,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           script: |
             set -e
-            APK=jd-pdf-pro/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r "$APK"
+            adb install -r jd-pdf-pro/app/build/outputs/apk/debug/app-debug.apk
             adb shell am force-stop com.jd.pdfpro || true
             adb shell am start -W -n com.jd.pdfpro/.MainActivity | tee test-output/launch.txt
             sleep 5
