@@ -47,6 +47,16 @@ s=s[:s.rfind(".method protected onUserLeaveHint()V")]+"""
     return-void
 .end method
 """
+# Re-arm the swipe gesture on the browsing WebView created by mini mode.
+# This WebView remains visible after the mini-player is closed.
+browse_anchor='    iput-object v0, p0, Lcom/example/streamshield/MainActivity;->browseWeb:Landroid/webkit/WebView;'
+replace_once(browse_anchor,browse_anchor+"""
+    new-instance v1, Lcom/example/streamshield/SwipeDown;
+    invoke-direct {v1, p0}, Lcom/example/streamshield/SwipeDown;-><init>(Lcom/example/streamshield/MainActivity;)V
+    invoke-virtual {v0, v1}, Landroid/webkit/WebView;->setOnTouchListener(Landroid/view/View$OnTouchListener;)V
+""")
+# Keep the gesture armed when closing the mini-player and reset the native state.
+# Do not remove or reload the browsing WebView.
 p.write_text(s)
 d=p.parent
 (d/"MiniControls.smali").write_text(r'''.class public Lcom/example/streamshield/MiniControls;
