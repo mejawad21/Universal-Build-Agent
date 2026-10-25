@@ -1,0 +1,58 @@
+name: Reverse Engineering Toolbox
+on:
+  workflow_dispatch:
+jobs:
+  setup-and-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install REA and check commands
+        run: |
+          node --version
+          npm view rea-agents version
+          npx --yes rea-agents --help || true
+      - name: Install JADX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jadx || {
+            echo "JADX not available via apt; fetching latest GitHub release"
+            python3 - <<'PY'
+          import json,urllib.request,zipfile,io,os
+          url="https://api.github.com/repos/skylot/jadx/releases/latest"
+          req=urllib.request.Request(url,headers={"User-Agent":"streamshield-toolbox"})
+          data=json.load(urllib.request.urlopen(req))
+          assets=[a for a in data["assets"] if a["name"].startswith("jadx-") and a["name"].endswith(".zip") and "gui" not in a["name"]]
+          if not assets: raise RuntimeError("JADX release ZIP unavailable")
+          raw=urllib.request.urlopen(assets[0]["browser_download_url"]).read()
+          os.makedirs("/tmp/jadx",exist_ok=True)
+          zipfile.ZipFile(io.BytesIO(raw)).extractall("/tmp/jadx")
+          PY
+          }
+      - name: Download Ghidra
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request,os
+          req=urllib.request.Request("https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/latest",headers={"User-Agent":"streamshield-toolbox"})
+          d=json.load(urllib.request.urlopen(req))
+          a=next((a for a in d["assets"] if a["name"].endswith(".zip") and "PUBLIC" in a["name"]),None)
+          if a is None: raise RuntimeError("Ghidra release ZIP unavailable")
+          print("Ghidra available:",a["name"])
+          with open("ghidra-download-url.txt","w") as f:f.write(a["browser_download_url"]+"\n")
+          PY
+      - name: Save installation report
+        if: always()
+        run: |
+          { echo "Toolbox check"; date -u; node --version; java -version 2>&1; command -v jadx || true; cat ghidra-download-url.txt 2>/dev/null || true; } > toolbox-report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Toolbox-Report
+          path: toolbox-report.txt
