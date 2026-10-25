@@ -79,10 +79,7 @@ jobs:
             adb shell screencap -p /sdcard/jd-pdf.png
             adb pull /sdcard/jd-pdf.png test-output/pdf-open.png
             adb logcat -d -v brief > test-output/logcat.txt
-            if grep -A 15 'FATAL EXCEPTION' test-output/logcat.txt | grep -q 'com.jd.pdfpro'; then
-              echo 'Application crash detected'
-              exit 1
-            fi
+            ! grep -A 15 'FATAL EXCEPTION' test-output/logcat.txt | grep -q 'com.jd.pdfpro'
             test -s test-output/home.png
             test -s test-output/pdf-open.png
       - name: Upload emulator screenshots and logs
