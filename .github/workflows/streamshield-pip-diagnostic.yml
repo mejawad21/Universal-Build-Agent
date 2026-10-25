@@ -31,14 +31,24 @@ jobs:
         run: |
           set -euo pipefail
           python3 streamshield-tools/patch_pip.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          p = Path('decoded/AndroidManifest.xml')
+          tree = ET.parse(p)
+          app = tree.getroot().find('application')
+          assert app is not None
+          app.set('{http://schemas.android.com/apk/res/android}label', 'JD stream')
+          tree.write(p, encoding='utf-8', xml_declaration=True)
+          PY
           java -jar apktool.jar b decoded -o unsigned.apk
           BUILD_TOOLS=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
           test -x "$BUILD_TOOLS/zipalign" || { echo "Android SDK zipalign missing"; exit 1; }
           "$BUILD_TOOLS/zipalign" -f -p 4 unsigned.apk aligned.apk
           keytool -genkeypair -v -keystore debug.keystore -alias streamshield -keyalg RSA -keysize 2048 -validity 3650 -storepass android -keypass android -dname "CN=StreamShield Test"
-          "$BUILD_TOOLS/apksigner" sign --ks debug.keystore --ks-key-alias streamshield --ks-pass pass:android --key-pass pass:android --out StreamShield-PiP-Diagnostic.apk aligned.apk
-          "$BUILD_TOOLS/apksigner" verify --verbose StreamShield-PiP-Diagnostic.apk
+          "$BUILD_TOOLS/apksigner" sign --ks debug.keystore --ks-key-alias streamshield --ks-pass pass:android --key-pass pass:android --out JD-stream.apk aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose JD-stream.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamShield-PiP-Diagnostic-APK
-          path: StreamShield-PiP-Diagnostic.apk
+          name: JD-stream-APK
+          path: JD-stream.apk
