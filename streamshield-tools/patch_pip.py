@@ -118,3 +118,20 @@ helper=r"""
 """
 (Path("decoded/smali_classes2/com/example/streamshield/MiniControls.smali")).write_text(helper)
 print("Added mini-player play/pause control")
+
+# Hide legacy Home/Go/Download bars, while retaining Back/Search and mini-player access
+# through the existing button until swipe gesture is verified.
+# Set actions and controls visibility at the end of onCreate to avoid altering their initialization.
+anchor="    invoke-virtual {p0, v0}, Lcom/example/streamshield/MainActivity;->setContentView(Landroid/view/View;)V"
+if anchor in s:
+    s=s.replace(anchor,anchor+"""
+    iget-object v0, p0, Lcom/example/streamshield/MainActivity;->controls:Landroid/widget/LinearLayout;
+    const/16 v1, 0x8
+    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setVisibility(I)V
+    iget-object v0, p0, Lcom/example/streamshield/MainActivity;->actions:Landroid/widget/LinearLayout;
+    invoke-virtual {v0, v1}, Landroid/widget/LinearLayout;->setVisibility(I)V
+""",1)
+    p.write_text(s)
+    print("Hidden legacy toolbar")
+else:
+    print("Legacy toolbar anchor not matched; leaving unchanged")
