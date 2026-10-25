@@ -1,6 +1,12 @@
 name: StreamShield Original APK PiP Diagnostic Build
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'streamshield-tools/**'
+      - '.github/workflows/streamshield-pip-diagnostic.yml'
+      - 'StreamShield*.apk'
 jobs:
   build:
     runs-on: ubuntu-latest
