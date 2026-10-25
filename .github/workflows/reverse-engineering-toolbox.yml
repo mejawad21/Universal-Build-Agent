@@ -42,8 +42,13 @@ jobs:
           PY
           find "$RUNNER_TEMP/toolbox/jadx" -type f -name jadx -exec chmod +x {} \;
           find "$RUNNER_TEMP/toolbox/ghidra" -type f -name analyzeHeadless -exec chmod +x {} \;
-          find "$RUNNER_TEMP/toolbox/jadx" -type f -name jadx -print -quit | xargs -r -I{} {} --version
-          find "$RUNNER_TEMP/toolbox/ghidra" -type f -name analyzeHeadless -print -quit | xargs -r -I{} sh -c 'test -x "$1" && echo "Ghidra headless installed"' sh {}
+          JADX_BIN=$(find "$RUNNER_TEMP/toolbox/jadx" -type f -name jadx -print -quit)
+          test -n "$JADX_BIN"
+          "$JADX_BIN" --version
+          GHIDRA_BIN=$(find "$RUNNER_TEMP/toolbox/ghidra" -type f -name analyzeHeadless -print -quit)
+          test -n "$GHIDRA_BIN"
+          test -x "$GHIDRA_BIN"
+          echo "Ghidra headless installed: $GHIDRA_BIN"
       - name: Verify REA package
         shell: bash
         run: |
